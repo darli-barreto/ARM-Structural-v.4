@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { chromium } from 'playwright';
+const browser=await chromium.launch({channel:'chrome',headless:true,args:['--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+await mkdir('test-results',{recursive:true});
+const points=()=>page.locator('#contour-vertices tr').evaluateAll(rows=>rows.map(row=>[...row.querySelectorAll('input')].map(i=>Number(i.value))));
+try{
+  await page.goto(process.env.APP_URL||'http://127.0.0.1:3015',{waitUntil:'domcontentloaded'});
+  await page.locator('#btn-full-building').click();await page.locator('#examples-load').click();await page.locator('#btn-open-schedule').click();
+  await page.locator('#sched-category').selectOption('OST_Floors');await page.locator('[data-focus]').first().click();await page.locator('#btn-ctx-sketch').click();
+  const original=await points(),box=await page.locator('#contour-canvas').boundingBox();
+  const xs=original.map(p=>p[0]),zs=original.map(p=>p[1]);
+  const cx=(Math.min(...xs)+Math.max(...xs))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
+  const scale=Math.min((box.width-100)/Math.max(Math.max(...xs)-Math.min(...xs),2),(box.height-100)/Math.max(Math.max(...zs)-Math.min(...zs),2));
+  const screen=([x,z])=>[box.x+box.width/2+(x-cx)*scale,box.y+box.height/2+(z-cz)*scale];
+  const start=screen([(original[0][0]+original[1][0])/2,(original[0][1]+original[1][1])/2]);
+  await page.mouse.move(...start);await page.mouse.down();await page.mouse.move(start[0]+45,start[1]+35,{steps:8});
+  await page.screenshot({path:'test-results/parallel-edge-guide.png'});await page.mouse.up();
+  const edited=await points();
+  assert.equal(edited[0][0],original[0][0]);assert.equal(edited[1][0],original[1][0]);assert.equal(edited[0][1],edited[1][1]);
+  assert.notEqual(edited[0][1],original[0][1]);assert.deepEqual(edited.slice(2),original.slice(2));
+  await page.locator('#contour-undo').click();assert.deepEqual(await points(),original);
+  const corner=screen(original[0]);await page.keyboard.down('Control');
+  await page.mouse.move(...corner);await page.mouse.down();await page.mouse.move(corner[0]+55,corner[1]+15,{steps:6});
+  await page.mouse.move(corner[0]+55,corner[1]+75,{steps:6});await page.mouse.up();await page.keyboard.up('Control');
+  const constrained=await points();assert.equal(constrained[0][1],original[0][1]);assert.notEqual(constrained[0][0],original[0][0]);
+  await page.locator('#contour-undo').click();assert.deepEqual(await points(),original);
+  await page.locator('#contour-move').click();const center=screen([cx,cz]);
+  await page.keyboard.down('Control');await page.mouse.move(...center);await page.mouse.down();await page.mouse.move(center[0]+50,center[1]+15,{steps:6});await page.mouse.up();await page.keyboard.up('Control');
+  const moved=await points(),dx=moved[0][0]-original[0][0];assert.ok(dx>0);
+  moved.forEach((p,i)=>{assert.ok(Math.abs(p[0]-original[i][0]-dx)<1e-4);assert.equal(p[1],original[i][1]);});
+  await page.locator('#contour-undo').click();assert.deepEqual(await points(),original);
+  await page.mouse.move(...center);await page.mouse.down();await page.mouse.move(center[0]+50,center[1]+50,{steps:6});
+  await page.locator('#contour-canvas').dispatchEvent('pointercancel',{pointerId:1});await page.mouse.up();assert.deepEqual(await points(),original);
+  await page.locator('#contour-redo').click();assert.deepEqual(await points(),moved);
+  await page.locator('#contour-hole').click();await page.keyboard.down('Control');
+  for(const point of [[cx-.7,cz-.7],[cx+.7,cz-.5],[cx+.9,cz+.7],[cx-.7,cz+.9]])await page.mouse.click(...screen(point));
+  await page.keyboard.up('Control');await page.locator('#contour-close-ring').click();
+  const hole=await points();assert.equal(hole.length,4);assert.equal(hole[0][1],hole[1][1]);assert.equal(hole[1][0],hole[2][0]);assert.equal(hole[2][1],hole[3][1]);
+  await page.locator('#contour-ring').selectOption('0');
+  await page.locator('#contour-finish').click();await page.locator('#btn-ctx-sketch').click();assert.deepEqual(await points(),moved);
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/contour-controls-mobile.png'});
+  await page.locator('#contour-cancel').click();
+
+  // Exercise the same drag manager used by the model, using a deterministic plan camera.
+  const checks=await page.evaluate(async()=>{
+    const THREE=await import('/node_modules/three/build/three.module.js');
+    const {GripManager}=await import('/src/tools/structural/GripManager.ts');
+    const {WasmBridge}=await import('/src/kernel/WasmBridge.ts');
+    const {ElementFactory}=await import('/src/tools/structural/ElementFactory.ts');
+    const {buildElementGeometry}=await import('/src/tools/structural/ElementGeometry.ts');
+    const wasm=new WasmBridge();await wasm.init();const factory=new ElementFactory(wasm),scene=new THREE.Scene();
+    const div=document.createElement('div');div.style.cssText='position:fixed;left:0;top:0;width:800px;height:600px';document.body.append(div);
+    const camera=new THREE.OrthographicCamera(-8,8,6,-6,.1,100);camera.position.set(0,20,0);camera.up.set(0,0,-1);camera.lookAt(0,0,0);camera.updateMatrixWorld();camera.updateProjectionMatrix();
+    const view={type:'plan',camera,domElement:div};
+    const manager=new GripManager(scene,wasm,factory,()=>view,()=>{},()=> 'hidden_line');
+    const p=(x,z)=>({x,y:0,z});
+    const source={type:'slab',boundary:[p(0,0),p(6,0),p(6,4),p(0,4)],voids:[[p(1,1),p(2,1),p(2,2),p(1,2)]],thickness:.2,elevationY:0};
+    const el={...factory.create(buildElementGeometry(wasm,source),'slab','hidden_line'),id:'fixture',definition:structuredClone(source),volume:4.6,levelName:'Nivel 1',dimensions:''};scene.add(el.mesh);
+    const mouse=(point,ctrlKey=false)=>{const q=new THREE.Vector3(point.x,point.y,point.z).project(camera);return new MouseEvent('pointermove',{clientX:(q.x+1)*400,clientY:(1-q.y)*300,button:0,ctrlKey});};
+    manager.updateGripsForElement(el);
+    let handle=manager.getGripMeshes().find(g=>g.userData.gripType==='slab_edge_mid'&&g.userData.edgeStartIndex===0&&g.userData.voidIndex===undefined);
+    manager.startDrag(handle,mouse(handle.userData.originalPoint));manager.updateDrag(mouse(p(5,.5)),[],[],[]);manager.endDrag();
+    const edge=structuredClone(el.definition.boundary);
+    manager.updateGripsForElement(el);handle=manager.getGripMeshes().find(g=>g.userData.gripType==='move');
+    const anchor=handle.userData.originalPoint,before=structuredClone(el.definition);
+    manager.startDrag(handle,mouse(anchor));manager.updateDrag(mouse({x:anchor.x+1,y:anchor.y,z:anchor.z+.2},true),[],[],[]);manager.endDrag();
+    const move=structuredClone(el.definition);
+    handle=manager.getGripMeshes().find(g=>g.userData.gripType==='move');manager.startDrag(handle,mouse(handle.userData.originalPoint));manager.updateDrag(mouse(p(5,5)),[],[],[]);manager.cancelDrag();
+    const cancelled=structuredClone(el.definition);
+    manager.clearGrips();div.remove();return {edge,before,move,cancelled};
+  });
+  assert.deepEqual(checks.edge,[{x:0,y:0,z:.5},{x:6,y:0,z:.5},{x:6,y:0,z:4},{x:0,y:0,z:4}]);
+  for(const key of ['boundary','voids']){
+    const before=key==='voids'?checks.before.voids.flat():checks.before.boundary,after=key==='voids'?checks.move.voids.flat():checks.move.boundary;
+    after.forEach((p,i)=>{assert.ok(Math.abs(p.x-before[i].x-1)<1e-9);assert.equal(p.z,before[i].z);});
+  }
+  assert.deepEqual(checks.cancelled,checks.move);assert.deepEqual(errors,[]);
+  console.log('Contour interactions passed: parallel edge, Ctrl, rigid move, undo/redo, cancellation, model grips.');
+}finally{await browser.close();}

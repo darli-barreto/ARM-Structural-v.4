@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {mkdir,readFile} from 'node:fs/promises';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({channel:'chrome',headless:true,args:['--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',error=>errors.push(error.message));await mkdir('test-results',{recursive:true});
+const download=async(selector,name)=>{const wait=page.waitForEvent('download');await page.locator(selector).click();await (await wait).saveAs(`test-results/${name}`);return readFile(`test-results/${name}`,'utf8');};
+const solve=async()=>{await page.locator('#analysis-solve').click();await page.waitForFunction(()=>document.querySelector('#analysis-status')?.textContent.includes('Equilibrio relativo'));};
+try{
+  await page.goto(process.env.APP_URL||'http://127.0.0.1:3015',{waitUntil:'domcontentloaded'});
+  await page.locator('#btn-full-building').click();await page.locator('input[value="supported"]').check();await page.locator('#examples-analyze').click();
+  await page.locator('#analysis-weight').fill('24');await page.locator('#analysis-weight').press('Tab');page.once('dialog',dialog=>dialog.accept());await page.locator('#analysis-generate').click();
+  await page.locator('[data-support="0"]').selectOption('pinned');await page.locator('[data-support="1"]').selectOption('roller');
+  await page.locator('[data-tab="members"]').click();await page.locator('[data-key="dead"]').fill('10');await page.locator('[data-key="dead"]').press('Tab');await page.locator('[data-key="live"]').fill('2');await page.locator('[data-key="live"]').press('Tab');
+  await solve();await page.locator('[data-tab="loads"]').click();
+  const additional=JSON.parse(await download('#load-balance-json','loads-additional.json'));assert.ok(Math.abs(additional.assembled.totals.fy+93.6)<1e-8);assert.equal(additional.resultState,'current');
+  await page.locator('[data-tab="members"]').click();await page.locator('[data-dead-mode]').selectOption('includes-self-weight');
+  await page.locator('#analysis-solve').click();assert.match(await page.locator('#analysis-status').textContent(),/falta referencia/);
+  await page.locator('[data-load-reference]').fill('Planilla de ensayo: D total = 10 kN/m con PP incluido.');await page.locator('[data-load-reference]').press('Tab');
+  await solve();await page.locator('[data-tab="loads"]').click();
+  const total=JSON.parse(await download('#load-balance-json','loads-total.json'));assert.ok(Math.abs(total.assembled.totals.fy+72)<1e-8);assert.equal(total.assembled.totals.selfWeight,0);assert.ok(Math.abs(total.assembled.totals.excludedSelfWeight-21.6)<1e-8);
+  assert.equal(total.resultState,'current');assert.match(await download('#load-balance-csv','loads-total.csv'),/Planilla de ensayo/);
+  assert.match(await download('#analysis-report','loads-memoria.html'),/D total incluye PP/);
+  await page.screenshot({path:'test-results/load-balance-desktop.png'});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/load-balance-mobile.png'});
+  const bounds=await page.locator('.analysis-dialog').boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=390);
+  assert.ok(await page.locator('.load-balance-summary').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  const solveBounds=await page.locator('#analysis-solve').boundingBox();assert.ok(solveBounds.y+solveBounds.height<=844,'Boton Calcular visible en movil');
+  await page.setViewportSize({width:1440,height:1000});await page.locator('#analysis-close').click();
+  await page.waitForFunction(()=>document.querySelector('#project-save-status')?.textContent==='Guardado local');
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#project-save-status')?.textContent==='Proyecto recuperado');
+  await page.locator('#project-analysis').click();await page.locator('[data-tab="members"]').click();assert.equal(await page.locator('[data-dead-mode]').inputValue(),'includes-self-weight');assert.match(await page.locator('[data-load-reference]').inputValue(),/Planilla/);
+  await solve();await page.locator('[data-tab="loads"]').click();assert.match(await page.locator('#load-balance-fy').textContent(),/-72.000/);
+  await page.locator('#analysis-factor-d').fill('2');await page.locator('#analysis-factor-d').press('Tab');assert.equal(await page.locator('#analysis-report').isDisabled(),true);
+  const changed=JSON.parse(await download('#load-balance-json','loads-unsolved.json'));assert.equal(changed.equilibrium,null);assert.equal(changed.resultState,'not-calculated');assert.ok(Math.abs(changed.assembled.totals.fy+132)<1e-8);
+  await page.locator('#analysis-close').click();await page.locator('#btn-full-building').click();await page.locator('input[value="office-8"]').check();page.once('dialog',dialog=>dialog.accept());await page.locator('#examples-analyze').click();
+  await page.locator('[data-tab="loads"]').click();assert.equal(await page.locator('[data-load-source]').count(),88);
+  await page.locator('#load-balance-filter').selectOption('pending');assert.ok(await page.locator('[data-load-source]').count()>0);assert.match(await page.locator('#analysis-table').textContent(),/Sin transferencia BIM/);
+  await page.locator('#load-balance-filter').selectOption('applied');await page.screenshot({path:'test-results/load-balance-office.png'});
+  await page.locator('[data-load-source] [data-focus]').first().click();assert.equal(await page.locator('#analysis-panel').isHidden(),true);
+  assert.deepEqual(errors,[]);console.log('Load ledger browser passed: additive/total declarations, missing evidence guard, persistence, factors, exports, source selection and desktop/mobile.');
+}catch(error){
+  console.error('Panel status:',await page.locator('#analysis-status').textContent().catch(()=>null),'Page errors:',errors);
+  await page.screenshot({path:'test-results/load-balance-failure.png'}).catch(()=>{});throw error;
+}finally{await browser.close();}

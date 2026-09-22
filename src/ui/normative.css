@@ -1,0 +1,20 @@
+.normative-dialog{max-width:1050px}
+.normative-body{overflow:auto;min-height:0;padding:16px 22px}
+.normative-scope{margin-bottom:16px}
+.normative-standards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.normative-standards fieldset{min-width:0;border:0;border-top:1px solid #c7d0d5;padding:12px 0 0;margin:0}
+.normative-standards legend{font-size:13px;font-weight:700;padding-right:8px;color:#253c43}
+.normative-standards label{margin-bottom:10px}
+.normative-dialog textarea{resize:vertical;max-height:180px}
+.normative-dialog a{color:#086b88;text-decoration:underline;overflow-wrap:anywhere}
+.normative-standards [data-source]{font-size:11px;line-height:1.5;color:#65757c}
+.normative-transition{padding:12px 0;border-bottom:1px solid #d8dfe3}
+.normative-body h3{font-size:14px;font-weight:600;margin:16px 0 8px}
+.normative-check{display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:6px 12px;border-bottom:1px solid #d8dfe3;padding:10px 0}
+.normative-check small{display:block;color:#65757c;margin-top:4px}
+.normative-check p{grid-column:1/-1;color:#65757c;font-size:11px;line-height:1.5}
+.normative-state{font-size:11px;color:#855821;text-align:right}
+.normative-check>*{min-width:0;overflow-wrap:anywhere}
+.normative-version{margin-top:14px;color:#65757c;font-size:11px}
+.normative-dialog .workspace-footer>span{min-width:0;overflow-wrap:anywhere}
+@media(max-width:700px){.normative-body{padding:12px}.normative-standards{grid-template-columns:1fr}.normative-check{grid-template-columns:minmax(0,1fr) 100px}}

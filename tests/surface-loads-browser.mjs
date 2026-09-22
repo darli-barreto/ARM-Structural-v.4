@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import {mkdir,readFile} from 'node:fs/promises';
+import {chromium} from 'playwright';
+const browser=await chromium.launch({channel:'chrome',headless:true,args:['--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',error=>errors.push(error.message));await mkdir('test-results',{recursive:true});
+const edit=async(id,value)=>{await page.locator(id).fill(value);await page.locator(id).press('Tab');};
+const solve=async()=>{await page.locator('#analysis-solve').click();await page.waitForFunction(()=>document.querySelector('#analysis-status')?.textContent.includes('Equilibrio relativo'));};
+const download=async(selector,name)=>{const wait=page.waitForEvent('download');await page.locator(selector).click();await (await wait).saveAs(`test-results/${name}`);return readFile(`test-results/${name}`,'utf8');};
+try{
+  await page.goto(process.env.APP_URL||'http://127.0.0.1:3015',{waitUntil:'domcontentloaded'});
+  await page.locator('#btn-full-building').click();await page.locator('input[value="supported"]').check();await page.locator('#examples-analyze').click();
+  await page.evaluate(async()=>{
+    const {BimDatabase}=await import('/src/core/database/BimDatabase.ts');
+    const db=BimDatabase.getInstance(),p=(x,z)=>({x,y:.25,z});
+    db.registerElement({definition:{type:'slab',boundary:[p(0,0),p(6,0),p(6,4),p(0,4)],voids:[[p(1,1),p(2,1),p(2,2),p(1,2)]],thickness:.2,elevationY:.25},legacyId:crypto.randomUUID(),category:'slab',volume:0,levelName:'Nivel 1',dimensions:''});
+  });
+  page.once('dialog',d=>d.accept());await page.locator('#analysis-generate').click();
+  await page.locator('[data-support="0"]').selectOption('pinned');await page.locator('[data-support="1"]').selectOption('roller');
+  await page.locator('[data-tab="surfaces"]').click();
+  assert.match(await page.locator('.surface-dimensions').textContent(),/23.000/);
+  await edit('#surface-weight','24');await edit('#surface-dead','1.2');await edit('#surface-live','2');
+  await edit('#surface-reference','Ensayo de transferencia 50%; no certificacion RNE.');
+  await edit('[data-surface-receiver]','50');await page.locator('#surface-save').click();
+  assert.match(await page.locator('#surface-feedback').textContent(),/Borrador/);
+  await page.locator('#analysis-solve').click();assert.match(await page.locator('#analysis-status').textContent(),/incompleto/);
+  await edit('#surface-outside','60');await page.locator('#surface-save').click();assert.match(await page.locator('#surface-feedback').textContent(),/supera el 100/);
+  await edit('#surface-outside','50');await edit('#surface-outside-reference','Portico vecino fuera de este ensayo 2D.');await page.locator('#surface-save').click();
+  assert.match(await page.locator('#surface-feedback').textContent(),/Reparto completo/);
+  await solve();await page.locator('[data-tab="loads"]').click();
+  const ledger=JSON.parse(await download('#load-balance-json','surface-loads.json'));
+  assert.ok(Math.abs(ledger.assembled.totals.fy+92)<1e-8);assert.ok(Math.abs(ledger.assembled.totals.surfaceDead-69)<1e-8);assert.ok(Math.abs(ledger.assembled.totals.surfaceLive-23)<1e-8);
+  assert.equal(ledger.resultState,'current');assert.equal(ledger.assembled.surfaces[0].pendingFraction,0);
+  assert.match(await download('#load-balance-csv','surface-loads.csv'),/Portico vecino/);
+  assert.match(await download('#analysis-report','surface-memoria.html'),/Ensayo de transferencia/);
+  await page.screenshot({path:'test-results/surface-balance-desktop.png'});
+  await page.locator('[data-tab="surfaces"]').click();await page.screenshot({path:'test-results/surface-editor-desktop.png'});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/surface-editor-mobile.png'});
+  assert.ok(await page.locator('.surface-properties').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  const bounds=await page.locator('#analysis-solve').boundingBox();assert.ok(bounds.y+bounds.height<=844);
+  await page.setViewportSize({width:1440,height:1000});await page.locator('[data-tab="members"]').click();
+  await edit('[data-key="dead"]','1');await page.locator('#analysis-solve').click();assert.match(await page.locator('#analysis-status').textContent(),/conciliar/);
+  await edit('[data-key="dead"]','0');await solve();
+  await page.locator('#analysis-close').click();await page.waitForFunction(()=>document.querySelector('#project-save-status')?.textContent==='Guardado local');
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#project-save-status')?.textContent==='Proyecto recuperado');
+  await page.locator('#project-analysis').click();await page.locator('[data-tab="surfaces"]').click();
+  assert.equal(await page.locator('#surface-weight').inputValue(),'24');assert.equal(await page.locator('[data-surface-receiver]').inputValue(),'50');
+  assert.match(await page.locator('#surface-reference').inputValue(),/Ensayo/);await solve();
+  await page.locator('[data-tab="surfaces"]').click();await edit('#surface-live','3');await page.locator('#surface-save').click();assert.ok(await page.locator('#analysis-report').isDisabled());
+  await page.locator('[data-tab="loads"]').click();assert.match(await page.locator('#load-balance-fy').textContent(),/-103.500/);
+  await page.locator('[data-tab="surfaces"]').click();page.once('dialog',d=>d.accept());await page.locator('[data-surface-delete]').click();assert.equal(await page.locator('[data-surface-source]').count(),0);
+  await solve();await page.locator('[data-tab="loads"]').click();assert.match(await page.locator('#load-balance-fy').textContent(),/0.000/);
+  assert.deepEqual(errors,[]);console.log('Surface loads browser passed: editor, guards, solver, conservation, exports, persistence, invalidation, deletion, desktop/mobile.');
+}catch(error){console.error('Status:',await page.locator('#analysis-status').textContent().catch(()=>null),errors);await page.screenshot({path:'test-results/surface-failure.png'}).catch(()=>{});throw error;}
+finally{await browser.close();}

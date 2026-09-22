@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modelador Estructural BIM 3D</title>
+    <meta name="description" content="Modelador estructural BIM 3D interactivo con Three.js para diseño y cálculo de pórticos, zapatas, columnas, vigas y losas." />
+    <meta property="og:title" content="Modelador Estructural BIM 3D" />
+    <meta property="og:description" content="Modelador estructural BIM 3D interactivo con Three.js para diseño y cálculo de pórticos, zapatas, columnas, vigas y losas." />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="bg-slate-900 text-slate-100 font-sans antialiased overflow-hidden">
+    <div id="app-root" class="flex flex-col w-screen h-screen">
+      <!-- 1. HEADER PRINCIPAL (RIBBON REVIT) -->
+      <header id="app-header" class="flex flex-col bg-slate-800 border-b border-white/10 z-50 shrink-0">
+        <!-- Barra de Pestañas Superiores -->
+        <div class="ribbon-tabs-bar flex gap-0.5 bg-slate-950 px-2.5 border-b border-white/10">
+          <button class="ribbon-tab-btn px-3.5 py-1.5 text-xs font-semibold rounded-t cursor-pointer border-t-2 border-sky-400 bg-slate-800 text-slate-100" data-tab="structure">Estructura</button>
+          <button class="ribbon-tab-btn px-3.5 py-1.5 text-xs font-semibold rounded-t cursor-pointer border-t-2 border-transparent text-slate-400 hover:text-slate-200" data-tab="view">Vista</button>
+          <button class="ribbon-tab-btn px-3.5 py-1.5 text-xs font-semibold rounded-t cursor-pointer border-t-2 border-transparent text-slate-400 hover:text-slate-200" data-tab="manage">Gestionar</button>
+        </div>
+
+        <!-- Paneles de Herramientas -->
+        <div class="ribbon-panels-container flex items-center px-2.5 py-1 overflow-x-auto gap-2 h-16">
+          <!-- PANEL: ESTRUCTURA -->
+          <div id="panel-structure" class="ribbon-panel flex gap-2 h-full items-center">
+            <!-- Grupo: Selección -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="tool-select" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all bg-sky-600 text-white border border-sky-400" title="Herramienta de Selección (Esc)">
+                <span class="text-base">👆</span><span>Modificar</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Selección</div>
+            </div>
+
+            <!-- Grupo: Datum / Rejillas y Niveles -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="tool-grid" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Rejilla / Ejes (GR)">
+                <span class="text-base">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <line x1="8" y1="2" x2="8" y2="22" stroke-dasharray="2 2" />
+                    <line x1="16" y1="2" x2="16" y2="22" stroke-dasharray="2 2" />
+                    <line x1="2" y1="8" x2="22" y2="8" stroke-dasharray="2 2" />
+                    <line x1="2" y1="16" x2="22" y2="16" stroke-dasharray="2 2" />
+                    <circle cx="8" cy="4" r="2.5" fill="#fff" stroke="#0284c7" stroke-width="2" />
+                    <circle cx="16" cy="4" r="2.5" fill="#fff" stroke="#0284c7" stroke-width="2" />
+                    <circle cx="4" cy="8" r="2.5" fill="#fff" stroke="#0284c7" stroke-width="2" />
+                    <circle cx="4" cy="16" r="2.5" fill="#fff" stroke="#0284c7" stroke-width="2" />
+                  </svg>
+                </span>
+                <span>Rejilla</span>
+              </button>
+              <button id="tool-level" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Nivel / Alturas de Planta (LL)">
+                <span class="text-base">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <line x1="2" y1="12" x2="15" y2="12" stroke-dasharray="2 2" />
+                    <circle cx="18" cy="12" r="4.2" fill="#0284c7" stroke="#fff" stroke-width="1.5" />
+                    <path d="M18 7.8 A4.2 4.2 0 0 1 22.2 12 L18 12 Z" fill="#fff" />
+                    <path d="M18 12 L13.8 12 A4.2 4.2 0 0 1 18 16.2 Z" fill="#fff" />
+                  </svg>
+                </span>
+                <span>Nivel</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Datum</div>
+            </div>
+
+            <!-- Grupo: Cimientos -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="tool-zapata" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Zapata Aislada">
+                <span class="text-base">🧱</span><span>Zapata</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Cimientos</div>
+            </div>
+
+            <!-- Grupo: Pórticos -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="tool-columna" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Columna Estructural">
+                <span class="text-base">🏛️</span><span>Columna</span>
+              </button>
+              <button id="tool-viga" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Viga de Pórtico">
+                <span class="text-base">📏</span><span>Viga</span>
+              </button>
+              <button id="tool-techo" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Losa / Techo de Entrepiso">
+                <span class="text-base">🏠</span><span>Losa</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Pórticos</div>
+            </div>
+
+            <!-- Grupo: Generación -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="btn-at-grid" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all bg-emerald-500/15 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/25" title="Colocar en intersecciones de ejes">
+                <span class="text-base">🎯</span><span>At Grid</span>
+              </button>
+              <button id="btn-full-building" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all bg-emerald-500/15 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/25" title="Modelos de ejemplo y referencias de calculo">
+                <span class="text-base">🏢</span><span>Ejemplos</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Generación</div>
+            </div>
+
+            <!-- Grupo: Nivel -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <div class="flex flex-col gap-0.5">
+                <label for="ribbon-level-select" class="text-[10px] text-slate-400 font-semibold uppercase">Nivel de Trabajo:</label>
+                <select id="ribbon-level-select" class="bg-slate-950 text-slate-100 border border-white/10 px-2 py-1 rounded text-xs outline-none focus:border-sky-500">
+                  <option value="0">Nivel 0: Cimientos (0.00m)</option>
+                  <option value="1">Nivel 1: Piso 1 (+3.50m)</option>
+                  <option value="2">Nivel 2: Piso 2 (+7.00m)</option>
+                  <option value="3">Nivel 3: Piso 3 (+10.50m)</option>
+                  <option value="4">Nivel 4: Piso 4 (+14.00m)</option>
+                  <option value="5">Nivel 5: Cubierta (+17.50m)</option>
+                </select>
+              </div>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Plano</div>
+            </div>
+
+            <!-- Grupo: Cuantificación BIM & Base de Datos -->
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="btn-open-schedule" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-sky-300 border border-sky-500/40 bg-sky-950/30 hover:bg-sky-900/50" title="Tablas de Planificación y Cómputos Métricos (Revit Schedule)">
+                <span class="text-base">📊</span><span>Tablas</span>
+              </button>
+              <button id="btn-select-by-id" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Seleccionar por ID o UniqueId GUID (Revit Select by ID)">
+                <span class="text-base">🔍</span><span>Select ID</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">BIM Data</div>
+            </div>
+          </div>
+
+          <!-- PANEL: VISTA -->
+          <div id="panel-view" class="ribbon-panel hidden gap-2 h-full items-center">
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <div class="flex flex-col gap-0.5">
+                <label for="visual-style-select" class="text-[10px] text-slate-400 font-semibold uppercase">Estilo Visual:</label>
+                <select id="visual-style-select" class="bg-slate-950 text-slate-100 border border-white/10 px-2 py-1 rounded text-xs outline-none focus:border-sky-500">
+                  <option value="hidden_line" selected>📄 Línea oculta</option>
+                  <option value="wireframe">🕸️ Estructura alámbrica</option>
+                  <option value="consistent_colors">🎨 Colores coherentes</option>
+                  <option value="shaded">🧊 Sombreado</option>
+                </select>
+              </div>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Gráficos</div>
+            </div>
+
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="btn-toggle-grid" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Alternar visibilidad de grillas">
+                <span class="text-base">👁️</span><span>Grillas</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Referencias</div>
+            </div>
+
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="btn-open-schedule-view" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-sky-300 border border-sky-500/40 bg-sky-950/30 hover:bg-sky-900/50" title="Abrir Tabla de Planificación / Metrados">
+                <span class="text-base">📊</span><span>Tablas</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Informes</div>
+            </div>
+          </div>
+
+          <!-- PANEL: GESTIONAR -->
+          <div id="panel-manage" class="ribbon-panel hidden gap-2 h-full items-center">
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="btn-clear" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-13.5 h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Limpiar todos los elementos">
+                <span class="text-base">🗑️</span><span>Limpiar</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Modelo</div>
+            </div>
+
+            <div class="tool-group flex gap-1 px-2 border-r border-white/10 items-center relative pb-3.5">
+              <button id="btn-open-mongo-inspector" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-emerald-300 border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60" title="Inspeccionar Esquema MongoDB / BSON y ejecutar mongoimport">
+                <span class="text-base">🍃</span><span>MongoDB</span>
+              </button>
+              <button id="btn-export-csv-direct" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Exportar Cómputos a CSV / Excel">
+                <span class="text-base">📥</span><span>CSV Excel</span>
+              </button>
+              <button id="btn-export-json-direct" class="ribbon-btn flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-md min-w-[54px] h-[52px] text-[11px] font-medium transition-all text-slate-200 border border-transparent hover:bg-white/5 hover:border-white/10" title="Descargar Dump BSON/JSON de la BD BIM">
+                <span class="text-base">💾</span><span>Dump JSON</span>
+              </button>
+              <div class="tool-group-label absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 uppercase tracking-wider font-semibold pointer-events-none">Base de Datos</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- 2. CUERPO PRINCIPAL (SIDEBAR + WORKSPACE) -->
+      <div id="app-body" class="flex flex-1 relative overflow-hidden">
+        <!-- SIDEBAR (PROPIEDADES / PROJECT BROWSER) -->
+        <aside id="app-sidebar" class="w-70 bg-slate-800 border-r border-white/10 flex flex-col shrink-0 z-40 select-none">
+          <div class="sidebar-tabs-nav flex border-b border-white/10 bg-slate-950">
+            <button class="sidebar-nav-btn active flex-1 bg-slate-800 text-sky-400 border-b-2 border-sky-400 py-2 text-xs font-semibold cursor-pointer transition-colors" data-sidebar-tab="properties">Propiedades</button>
+            <button class="sidebar-nav-btn flex-1 bg-transparent text-slate-400 border-b-2 border-transparent py-2 text-xs font-semibold cursor-pointer hover:text-slate-200 transition-colors" data-sidebar-tab="browser">Navegador</button>
+          </div>
+
+          <!-- PESTAÑA: PROPIEDADES -->
+          <div id="sidebar-properties" class="sidebar-tab-content flex-1 overflow-y-auto p-3 text-xs block">
+            <div id="properties-content"></div>
+          </div>
+
+          <!-- PESTAÑA: PROJECT BROWSER (ÁRBOL BIM) -->
+          <div id="sidebar-browser" class="sidebar-tab-content flex-1 overflow-y-auto p-3 text-xs hidden select-none">
+            <div class="text-[11px] text-slate-400 font-bold mt-1 mb-1 uppercase tracking-wider">Vistas 3D</div>
+            <div id="browser-3d-list" class="flex flex-col gap-0.5">
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-view="view-3d"><span>🧊</span> {3D} - Vista General</div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 font-bold mt-3 mb-1 uppercase tracking-wider flex items-center justify-between">
+              <span>Planos de Planta</span>
+              <span id="browser-plan-count" class="text-[10px] text-slate-500 font-mono">1</span>
+            </div>
+            <div id="browser-floor-plans-list" class="flex flex-col gap-0.5">
+              <!-- Renderizado dinámicamente según los niveles del proyecto -->
+            </div>
+
+            <div class="text-[11px] text-slate-400 font-bold mt-3 mb-1 uppercase tracking-wider">Elevaciones</div>
+            <div id="browser-elevations-list" class="flex flex-col gap-0.5">
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-view="elev-north"><span>🏛️</span> Elevación Norte (Posterior)</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-view="elev-south"><span>🏛️</span> Elevación Sur (Frontal)</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-view="elev-east"><span>🏛️</span> Elevación Este (Lateral Derecha)</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-view="elev-west"><span>🏛️</span> Elevación Oeste (Lateral Izquierda)</div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 font-bold mt-3 mb-1 uppercase tracking-wider flex items-center justify-between">
+              <span>Tablas de Planificación</span>
+              <span class="text-[9px] bg-sky-950 text-sky-400 border border-sky-800 px-1 py-0.2 rounded font-mono">Revit</span>
+            </div>
+            <div id="browser-schedules-list" class="flex flex-col gap-0.5">
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-schedule="ALL"><span>📊</span> Cómputos Generales (Todo el Modelo)</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-schedule="OST_StructuralColumns"><span>📊</span> Cómputos - Pilares Estructurales</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-schedule="OST_StructuralFraming"><span>📊</span> Cómputos - Armazón (Vigas)</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-schedule="OST_StructuralFoundation"><span>📊</span> Cómputos - Cimentación (Zapatas)</div>
+              <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-300 hover:bg-white/5 hover:text-sky-400 transition-colors" data-open-schedule="OST_Floors"><span>📊</span> Cómputos - Suelos y Losas</div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 font-bold mt-3 mb-1 uppercase tracking-wider">Familias de Concreto</div>
+            <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"><span>📁</span> Zapata Aislada (2.0x2.0m)</div>
+            <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"><span>📁</span> Columna Concreto (0.4x0.4m)</div>
+            <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"><span>📁</span> Viga Peraltada (0.4x0.55m)</div>
+            <div class="tree-item flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"><span>📁</span> Losa Concreto (e=0.20m)</div>
+          </div>
+        </aside>
+
+        <!-- WORKSPACE (TABS + VIEWPORTS) -->
+        <main id="app-workspace" class="flex-1 flex flex-col relative overflow-hidden bg-slate-950">
+          <!-- BARRA DE PESTAÑAS DE VISTAS Y BOTONES DE MOSAICO -->
+          <div id="view-tabs-bar" class="h-8 bg-slate-950 border-b border-white/10 flex items-center justify-between px-1.5 z-40 select-none relative">
+            <button id="tabs-scroll-left" class="w-5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 text-xs shrink-0 transition-colors cursor-pointer" title="Desplazar pestañas a la izquierda">‹</button>
+            <div id="view-tabs-list" class="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1 min-w-0 px-1 py-0.5"></div>
+            <button id="tabs-scroll-right" class="w-5 h-6.5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 text-xs shrink-0 transition-colors cursor-pointer mr-1" title="Desplazar pestañas a la derecha">›</button>
+
+            <!-- Botón de Menú Desplegable de Desbordamiento (>>) -->
+            <div class="relative shrink-0 mr-2">
+              <button id="tabs-overflow-btn" class="px-2 h-6.5 rounded flex items-center gap-1.5 text-slate-400 hover:text-sky-300 hover:bg-white/10 text-xs font-semibold transition-colors cursor-pointer border border-transparent hover:border-white/10" title="Vistas abiertas y desbordadas">
+                <span>»</span>
+                <span id="tabs-count-badge" class="text-[10px] bg-slate-800 text-sky-400 px-1.5 rounded-full font-mono font-bold">1</span>
+              </button>
+              <div id="tabs-overflow-menu" class="hidden absolute right-0 top-full mt-1 w-64 max-h-80 overflow-y-auto bg-slate-900 border border-white/15 rounded-md shadow-2xl z-50 py-1 text-xs"></div>
+            </div>
+
+            <div class="view-layout-controls flex gap-1 items-center shrink-0 border-l border-white/10 pl-2">
+              <button id="layout-single" class="layout-btn px-2 py-0.5 rounded text-xs border border-sky-400 bg-sky-600 text-white font-medium cursor-pointer transition-colors" title="Pestaña Única (TW)">⬛ Única</button>
+              <button id="layout-split-v" class="layout-btn px-2 py-0.5 rounded text-xs border border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-pointer transition-colors" title="Dividir Vertical">❚❚ Split V</button>
+              <button id="layout-split-h" class="layout-btn px-2 py-0.5 rounded text-xs border border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-pointer transition-colors" title="Dividir Horizontal">〓 Split H</button>
+              <button id="layout-grid-4" class="layout-btn px-2 py-0.5 rounded text-xs border border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-pointer transition-colors" title="Mosaico 4 Vistas (WT)">⊞ Mosaico</button>
+            </div>
+          </div>
+
+          <div id="canvas-container" class="absolute top-8 left-0 right-0 bottom-0 w-full h-[calc(100%-2rem)] pointer-events-none z-0"></div>
+          <div id="viewports-container" class="absolute top-8 left-0 right-0 bottom-0 w-full h-[calc(100%-2rem)] grid grid-cols-1 grid-rows-1 gap-0.5 bg-transparent pointer-events-none z-10"></div>
+        </main>
+      </div>
+
+      <!-- 3. FOOTER (BARRA DE ESTADO BIM) -->
+      <footer id="app-footer" class="h-7 bg-slate-950 border-t border-white/10 flex justify-between items-center px-3 text-xs text-slate-400 shrink-0 z-50 select-none font-mono">
+        <div class="footer-left flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <span id="status-message" class="text-slate-300 font-sans">Listo</span>
+        </div>
+        <div class="footer-center flex gap-4 text-slate-300" id="status-metrics">
+          <span>Elementos: <strong class="text-slate-100 font-bold">0</strong></span>
+          <span>Concreto: <strong class="text-slate-100 font-bold">0.00 m³</strong></span>
+        </div>
+        <div class="footer-right flex gap-3 text-slate-400">
+          <span>1:100</span>
+          <span id="status-coords">X: 0.00m | Z: 0.00m | Y: 0.00m</span>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

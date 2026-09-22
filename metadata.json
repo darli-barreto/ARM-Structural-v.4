@@ -1,0 +1,8 @@
+{
+  "name": "Modelador Estructural BIM 3D",
+  "description": "Modelador estructural BIM 3D interactivo con Three.js para diseño y cálculo de pórticos, zapatas, columnas, vigas y losas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

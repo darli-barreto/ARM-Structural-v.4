@@ -1,0 +1,259 @@
+[
+  {
+    "heading": "Informe de avances y pendientes",
+    "blocks": [
+      "Corte de avance al 20 de septiembre de 2026  |  Plan F0 a F10",
+      "Contamos con una base BIM operativa, metrados netos de concreto, vistas vinculadas y análisis lineal de pórticos 2D con cargas trazables. <b>El producto todavía no cubre el diseño integral de un edificio ni acredita cumplimiento del RNE.</b> El siguiente cierre técnico debe concentrarse en las cargas, la idealización y su validación antes de habilitar sismo o diseño resistente.",
+      "Este informe permite decidir el orden de desarrollo y la evidencia necesaria para completar cada fase. Los estados se refieren al alcance total de la fase: una función implementada o una prueba aprobada no equivale a una fase cerrada. No asignamos porcentajes globales sin estimación del esfuerzo y criterios de cierre aprobados.",
+      "<b>Prioridades:</b> P0 = condición crítica para habilitar el alcance; P1 = desarrollo posterior según dependencias. <b>Siglas:</b> PP = peso propio; FEM = elementos finitos; GUID = identificador único del elemento BIM.",
+      {
+        "headers": [
+          "Fase",
+          "Situación",
+          "Condición principal para cerrar"
+        ],
+        "rows": [
+          [
+            "F0 Normativa y alcance",
+            "Parcial",
+            "Matriz de artículos e interpretación revisadas"
+          ],
+          [
+            "F1 Datos e idealización",
+            "Parcial",
+            "Conexiones, excentricidades y contratos completos"
+          ],
+          [
+            "F2 Inventario de cargas",
+            "Parcial",
+            "Peso sin duplicaciones y composiciones trazables"
+          ],
+          [
+            "F3 Predimensionamiento",
+            "Pendiente",
+            "Propuestas verificables y reversibles"
+          ],
+          [
+            "F4 Motor espacial",
+            "Pendiente en 3D",
+            "Barras 3D, superficies y convergencia"
+          ],
+          [
+            "F5 Sitio y masas",
+            "Pendiente",
+            "Datos geotécnicos y masa conciliada"
+          ],
+          [
+            "F6 Análisis sísmico",
+            "Pendiente",
+            "Reglas E.030 y referencias independientes"
+          ],
+          [
+            "F7 Diseño de concreto",
+            "Pendiente",
+            "Combinaciones, resistencia, servicio y detalle"
+          ],
+          [
+            "F8 Cimentaciones",
+            "Pendiente",
+            "Terreno y concreto verificados por separado"
+          ],
+          [
+            "F9 Expediente final",
+            "Parcial en salidas",
+            "Planos, despiece y memoria coordinados"
+          ],
+          [
+            "F10 Validación y piloto",
+            "Inicial",
+            "Revisión independiente y piloto documentado"
+          ]
+        ]
+      },
+      "<b>Lectura rápida:</b> avances en página 2; cierre de fases en páginas 3 y 4; próximas tareas en página 5; validación y responsabilidades en página 6; evidencias y fuentes en página 7."
+    ]
+  },
+  {
+    "heading": "Avances que ya podemos utilizar",
+    "blocks": [
+      "Funciones disponibles y límites que permanecen abiertos",
+      "Modelo físico y edición",
+      "Columnas, vigas, losas y zapatas paramétricas; contorno de losas y huecos, edición numérica, desplazamiento paralelo de bordes y traslación sin deformación. Ctrl o Shift restringen el eje. Faltan placas, muros y otros sistemas; un sólido modelado no constituye un elemento diseñado.",
+      "Metrados y uniones",
+      "Tabla con filtros, agrupación, edición de atributos y CSV. Booleanas con prioridad zapata > columna > viga > losa; se conserva volumen bruto, descuento y neto. El encofrado sigue estimado. Este descuento físico aún no reconcilia automáticamente el peso aplicado al solver.",
+      "Modelo analítico y motor 2D",
+      "Grafo compartido de ejes centroidales, nudos, tramos y correspondencia GUID. Filtros XY y ZY; modelo de cálculo coincidente con el mostrado. Solver Timoshenko en worker, apoyos, liberaciones, cargas, reacciones, N/V/M y deformada. Límite de 500 nudos por plano; sin brazos rígidos ni solver espacial.",
+      "Cargas y fuentes superficiales",
+      "PP de barras, D/L manuales y nodales separados. D adicional o D total con PP incluido. Fuentes de losa con área descontando huecos, propiedades declaradas, reparto porcentual a vigas horizontales y balance asignado/fuera/pendiente. Se bloquean repartos incompletos y conflictos con D/L manuales; no se valida la compatibilidad espacial del reparto.",
+      "Normativa y persistencia",
+      "Perfil por proyecto, ediciones propuestas, evidencia y matriz de pendientes. Contrato con seis estados de verificación; ninguna regla RNE real está habilitada como comprobación validada. Guardado local y archivo de proyecto conservan geometría y entradas; los cambios invalidan resultados dependientes.",
+      "Armadura y documentos",
+      "Jaulas manuales de vigas/columnas, transparencia y masa teórica. No hay diseño E.060 ni despiece constructivo completo. Memoria HTML del pórtico, balance CSV/JSON y proyecto exportable; no son todavía un expediente técnico coordinado.",
+      "<b>Evidencia de la última entrega de código:</b> 55 pruebas unitarias aprobadas, TypeScript y compilación correctos; cinco flujos de navegador aprobados. Se detalla su alcance en la página 7. Esta revisión documental no sustituye esas pruebas ni añade certificación."
+    ]
+  },
+  {
+    "heading": "Cierre de las fases F0 a F4",
+    "blocks": [
+      "Prioridad P0 salvo F3  |  Responsables por asignar",
+      "F0 Base normativa y alcance",
+      "<b>Falta:</b> confirmar tipología, exclusiones, revisor y proyecto piloto; revisar artículos, notas y aplicabilidad de cada edición de E.020/E.030/E.050/E.060. Confirmar oficio y anexos del solicitante. <b>Salida:</b> matriz artículo → requisito → datos → algoritmo → prueba, aprobada por el responsable técnico; reglas no revisadas bloqueadas. <b>Dependencia:</b> ninguna; condiciona la liberación de las demás fases.",
+      "F1 Datos e idealización",
+      "<b>Falta:</b> contratos de materiales, secciones, superficies, conexiones y restricciones; decisiones editables de excentricidad, brazos rígidos y transferencia entre revisiones. <b>Salida:</b> un único modelo analítico trazable, con pruebas de cruces, inclinados, cuerpos separados y mecanismos. Ninguna tolerancia debe ocultar una conexión incorrecta. <b>Dependencia:</b> alcance F0.",
+      "F2 Inventario BIM de cargas",
+      "<b>Falta:</b> conciliar PP por encuentros, verificar receptores espacialmente, registrar capas/usos/equipos/tabiques y revisar biblioteca E.020. Controlar el peso entre pórticos, no solo dentro de uno. <b>Salida:</b> nivel regular y nivel con huecos contra planilla independiente, sin omisiones ni doble conteo; fuerza y procedencia conciliadas. El neto físico no cambia la rigidez FEM. <b>Dependencia:</b> F0 y F1.",
+      "F3 Predimensionamiento asistido",
+      "<b>Falta:</b> métodos con dominio de uso, supuestos, alternativas e iteración del peso al cambiar secciones; distinguir heurística de comprobación normativa. <b>Salida:</b> propuesta preliminar reproducible, reversible y aceptada por el usuario, sin sustituir resistencia, servicio o sismo. <b>Dependencia:</b> F2; puede avanzar junto con F4 cuando sus datos estén controlados.",
+      "F4 Solver espacial y superficies",
+      "<b>Falta:</b> seleccionar motor y licencia, barras 3D, matrices dispersas, shells, mallado y diafragmas justificados. Conservar el motor 2D como regresión. <b>Salida:</b> referencias de axial/flexión/torsión, pórtico espacial, losa y muro; equilibrio, energía y convergencia. El reparto debe conservar fuerza y momento globales. <b>Dependencia:</b> F1 y F2; el reparto uniforme actual no cierra esta fase."
+    ]
+  },
+  {
+    "heading": "Cierre de las fases F5 a F10",
+    "blocks": [
+      "Diseño integral y liberación del producto",
+      "F5 Sitio y fuente de masa",
+      "Contexto de ubicación, uso, sistema por dirección y estudio geotécnico trazable. Fuente de masa separada de combinaciones resistentes; pesos, masas, centros y exclusiones conciliados por nivel. No inferir suelo por ciudad o por presión admisible. <b>Depende de:</b> F0, F2 y F4.",
+      "F6 Análisis y auditoría sísmica",
+      "Implementar métodos y reglas de la edición E.030 aplicable: modal/espectral, combinaciones, torsión, cortantes, irregularidades, derivas y estabilidad. Conservar resultados antes/después de ajustes. <b>Cierre:</b> casos normales, límites e incumplimientos con comparación independiente. <b>Depende de:</b> F0, F4 y F5.",
+      "F7 Combinaciones y diseño E060",
+      "Combinaciones versionadas y esfuerzos concomitantes; resistencia, servicio y detallado por tipo de elemento y sistema. Anclajes, empalmes, confinamiento y constructibilidad cuando correspondan. <b>Cierre:</b> casos independientes favorables y desfavorables, sin mezclar máximos incompatibles. <b>Depende de:</b> F0, F4 y F6.",
+      "F8 Cimentaciones E050 y E060",
+      "Primero zapatas; luego otras tipologías validadas. Separar servicio del terreno y diseño del concreto; contacto, presiones, asentamientos, estabilidad y punzonamiento. <b>Cierre:</b> carga centrada, excéntrica y pérdida de contacto contrastadas con hipótesis del estudio de suelos. <b>Depende de:</b> F4 a F7.",
+      "F9 Detallado y expediente",
+      "Despiece real, mallas, partidas, memoria, planos y revisiones coordinadas. Definir exportación CAD efectivamente soportada y licencia; no prometer DWG o firma digital sin integración validada. <b>Cierre:</b> todos los entregables de una misma instantánea, con cantidades conciliadas y aprobación de revisión. <b>Depende de:</b> F7 y F8.",
+      "F10 Validación independiente y piloto",
+      "Corpus versionado de ensayos; revisor distinto del implementador; piloto con expediente de referencia y discrepancias documentadas. Incluir rendimiento, recuperación y licencias. <b>Cierre:</b> resultados reproducibles, casos negativos detectados y límites publicados. <b>Dependencia:</b> transversal; condición obligatoria antes de liberar cada alcance."
+    ]
+  },
+  {
+    "heading": "Próximas tareas en orden de prioridad",
+    "blocks": [
+      "Identificadores de seguimiento propuestos para las siguientes entregas",
+      {
+        "headers": [
+          "Tarea",
+          "Entregable y prueba de aceptación",
+          "Dependencia"
+        ],
+        "rows": [
+          [
+            "T01  P0\nF2 Peso propio",
+            "Asignar cada encuentro físico una sola vez a la ruta de cargas. Ensayo viga-columna-losa con hueco: peso de fuentes = peso asignado + exclusiones justificadas; sin modificar A ni I resistentes.",
+            "Base actual"
+          ],
+          [
+            "T02  P0\nF1/F2 Receptores",
+            "Comprobar ubicación, nivel, conectividad y cobertura de las vigas. Avisar incompatibilidades; conciliar porcentajes entre pórticos y preservar el residual y su sustento.",
+            "T01"
+          ],
+          [
+            "T03  P0\nF0 Normativa",
+            "Cerrar matriz E.020 y combinaciones E.060; revisar E.030 y transitorias aplicables. Cada regla requiere artículo, versión, datos, casos y aprobación técnica.",
+            "Puede avanzar junto a T01"
+          ],
+          [
+            "T04  P0\nF2 Composiciones",
+            "Capas, uso, densidad, espesor y fuente verificables. Bloquear datos ausentes y duplicaciones entre tabique modelado y carga equivalente. Comparar dos niveles con planilla.",
+            "T01-T03"
+          ],
+          [
+            "T05  P0\nF1/F4 Adaptador",
+            "Contrato de conexiones y superficies; decisión de motor 3D y licencia. Prototipo pequeño que conserve fuerzas y momentos; migración probada de proyectos.",
+            "Datos F1/F2"
+          ],
+          [
+            "T06  P0\nF10 Ensayos",
+            "Paquete independiente con datos, solución esperada, tolerancias y diferencias. Conservar regresiones 2D y criterios de rechazo, firmado por el revisor asignado.",
+            "Desde T01 y en cada entrega"
+          ]
+        ]
+      },
+      "Secuencia para llegar al producto integral",
+      "F0 y F1/F2 controladas → F4 espacial → F5 masas → F6 sismo → F7 concreto → F8 cimentaciones → F9 expediente. F3 puede desarrollarse después de F2; F10 acompaña toda la ruta y controla la liberación. Completar una demostración de una fase no elimina sus dependencias.",
+      "Decisiones antes de comprometer fechas",
+      "Asignar responsable de cálculo y revisor independiente; fijar tipología y exclusiones del piloto; obtener expediente/estudio geotécnico autorizados; decidir motor y condiciones de licencia. Estimar cada tarea después de estos acuerdos. No hay una fecha ni un porcentaje global de finalización técnicamente sustentados todavía."
+    ]
+  },
+  {
+    "heading": "Control de calidad y responsabilidades",
+    "blocks": [
+      "Qué debe acompañar cada entrega antes de considerarla cerrada",
+      "Paquete mínimo de cierre",
+      "<b>1. Especificación:</b> ID, fase, alcance, exclusiones, artículo/edición cuando corresponda, entradas con unidades y tratamiento de datos insuficientes.",
+      "<b>2. Implementación:</b> versión de algoritmo y dependencias; errores explícitos, cancelación y bloqueo de resultados obsoletos; migración de datos existente.",
+      "<b>3. Evidencia:</b> caso independiente con valores esperados, unidades y tolerancia fijada antes de ejecutar; casos límite, negativos y regresiones.",
+      "<b>4. Revisión:</b> comparación documentada, discrepancias resueltas o excluidas con justificación y aprobación del responsable técnico.",
+      "<b>5. Liberación:</b> manual, limitaciones y formatos reproducibles actualizados; respaldo y recuperación probados. Una salida preliminar no se etiqueta como expediente revisado.",
+      {
+        "headers": [
+          "Rol por asignar",
+          "Responsabilidad"
+        ],
+        "rows": [
+          [
+            "Responsable del producto",
+            "Definir alcance, prioridades, piloto, exclusiones y recursos."
+          ],
+          [
+            "Ingeniero calculista",
+            "Aprobar hipótesis, normativa aplicable, modelos y criterios técnicos."
+          ],
+          [
+            "Desarrollo",
+            "Implementar contratos, motor, interfaz, migración y trazabilidad."
+          ],
+          [
+            "QA y revisión independiente",
+            "Producir referencias, reproducir ensayos y registrar diferencias."
+          ],
+          [
+            "Autor y revisor del expediente",
+            "Aprobar entregables del proyecto dentro de sus competencias."
+          ]
+        ]
+      },
+      "Estados que no deben confundirse",
+      "<b>Trabajo:</b> por especificar → especificado → implementado → probado → revisado → habilitado. <b>Comprobación:</b> no evaluado, datos insuficientes, no aplica justificado, cumple, no cumple u obsoleto. El contrato de estos estados existe; las reglas RNE reales permanecen pendientes. Ni el color de una vista ni un equilibrio numérico favorable certifican un edificio.",
+      "<b>Riesgos abiertos:</b> peso duplicado en encuentros del solver; idealizaciones no revisadas; distribución superficial sin control espacial/momento; ausencia de masa y solver 3D; licencia del motor; dependencia de datos y revisión profesional. Las mitigaciones son T01-T06 y las puertas de aceptación de cada fase."
+    ]
+  },
+  {
+    "heading": "Evidencia y referencias de seguimiento",
+    "blocks": [
+      "Cómo comprobar el avance y mantener actualizado este informe",
+      "Ejecución registrada en la última entrega",
+      "55 pruebas unitarias aprobadas; verificación TypeScript y compilación Vite correctas. Cinco flujos de navegador: superficies, balance de cargas, vistas duales, ejemplos y prueba general. Incluyen escritorio/móvil, persistencia, exportaciones e invalidación. Las advertencias de compilación sobre tamaño del paquete y externalización de node:module por Manifold permanecen como deuda técnica; no se presentaron como resueltas.",
+      {
+        "headers": [
+          "Referencia",
+          "Resultado esperado o alcance"
+        ],
+        "rows": [
+          [
+            "Viga biapoyada",
+            "L=6 m, q=10 kN/m, PP=0: Ry=30 kN en cada apoyo; |M|max=45 kN m."
+          ],
+          [
+            "Declaración de D",
+            "L=6 m; PP=3.6, D=10 y L=2 kN/m: 93.6 kN con D adicional; 72 kN con D total que incluye PP."
+          ],
+          [
+            "Fuente superficial",
+            "Área=23 m2; h=0.20 m; peso unitario=24 kN/m3; D adicional=1.2 y L=2 kN/m2: D=138 y L=46 kN. Al 50%: 69 y 23 kN."
+          ],
+          [
+            "Oficinas de 8 niveles",
+            "827 elementos; pórtico de 103 nudos y 136 tramos de 88 elementos BIM. Integración, no edificio certificado."
+          ]
+        ]
+      },
+      "Fuentes internas",
+      "Plan maestro: docs/PLAN_RNE_Y_REQUERIMIENTOS.md, secciones 6 y 11 a 14. Implementación: src/core/analysis, src/core/model, src/core/normative y src/ui. Evidencia reproducible: tests/surface-loads.test.ts, tests/load-ledger.test.ts y scripts de navegador declarados en package.json. La sección 4 del plan es un diagnóstico histórico; los avances posteriores y este corte evitan interpretarla como estado vigente.",
+      "Fuentes oficiales para la revisión normativa",
+      "La publicación del MVCS identifica la modificación de E.030 mediante la <link href=\"https://www.gob.pe/institucion/vivienda/normas-legales/8081915-183-2026-vivienda\" color=\"#155c7a\">RM 183-2026-VIVIENDA</link>. La <link href=\"https://www.gob.pe/institucion/vivienda/normas-legales/8219609-217-2026-vivienda\" color=\"#155c7a\">RM 217-2026-VIVIENDA</link> modifica su disposición transitoria para proyectos en curso. El perfil debe justificar la edición aplicable; esta referencia no reemplaza la revisión integral del texto técnico.",
+      "<link href=\"https://www.gob.pe/institucion/vivienda/informes-publicaciones/2309793-reglamento-nacional-de-edificaciones-rne\" color=\"#155c7a\">Compendio oficial RNE del MVCS</link>: localizar E.020, E.030, E.050 y E.060 y revisar sus modificatorias. Consulta de publicaciones: 20 de septiembre de 2026. El historial atribuido al CIP es un insumo del proyecto; no constituye por sí solo homologación, norma ni autorización.",
+      "<b>Actualización sugerida:</b> al cerrar cada T01-T06 y cada fase, registrar versión, evidencia, fecha, responsable y aprobación; reemplazar el estado solo cuando se cumpla su puerta de aceptación."
+    ]
+  }
+]
