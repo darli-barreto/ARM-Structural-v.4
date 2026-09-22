@@ -135,3 +135,4 @@ ts-fem se fija al commit `b18694f42119de46c91cb37143896ca69e54d5a3`, version 0.2
 
 Fuente oficial para revisar las normas y sus modificaciones: [Reglamento Nacional de Edificaciones, MVCS](https://www.gob.pe/institucion/vivienda/informes-publicaciones/2309793-reglamento-nacional-de-edificaciones-rne). No se fijan coeficientes normativos sin su implementacion y validacion correspondiente.
 # ARM-Structural-v.2
+# ARM-Structural-v.2
