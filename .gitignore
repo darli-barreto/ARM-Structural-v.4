@@ -1,9 +1,12 @@
 # Dependencies
 node_modules/
-.pnpm-store/
 test-results/
+.next/
+out/
+*.tsbuildinfo
+public/vendor/manifold.wasm
 
-# Vite build output
+# Build output
 dist/
 
 # Local environment files
@@ -16,7 +19,6 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
 # Editor and OS files
 .vscode/
