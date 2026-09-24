@@ -1,26 +1,30 @@
 # ARM Structural
 
-Entorno BIM estructural en TypeScript, Three.js y Vite. La geometria parametrica es la fuente de los metrados y del modelo analitico derivado.
+Entorno BIM estructural en TypeScript, Next.js App Router, React y Three.js. La geometria parametrica es la fuente de los metrados y del modelo analitico derivado.
 
 ## Ejecutar
 
-Requiere Node.js 20+ y pnpm.
+Requiere Node.js 20+ y Bun.
 
 ```sh
-pnpm install
-pnpm dev --port 3015
-pnpm lint
-pnpm test
-pnpm build
+bun install
+bun run dev
+bun run lint
+bun run test
+bun run build
 ```
 
-Para la prueba integral, iniciar el servidor y ejecutar `pnpm test:browser`. Usa Google Chrome instalado, perfil temporal y `http://127.0.0.1:3015`; se puede cambiar con `APP_URL`. Las capturas y exportaciones se guardan en `test-results/` (ignorado). No utiliza el perfil personal del navegador.
+Next se inicia en `http://localhost:3000`. Para la prueba integral, iniciar el servidor y ejecutar `bun run test:browser`. Usa Google Chrome instalado, perfil temporal y `http://127.0.0.1:3015`; se puede cambiar con `APP_URL`. Las capturas y exportaciones se guardan en `test-results/` (ignorado). No utiliza el perfil personal del navegador.
 
-`pnpm test:contour` comprueba arrastres paralelos, bloqueo Ctrl, dibujo ortogonal, traslacion rigida, deshacer/rehacer y cancelacion en el editor y en los controles del modelo.
+## Arquitectura De Interfaz
 
-`pnpm test:dual` comprueba uniones de 827 solidos, vistas fisica/analitica, proyecciones, comparacion desktop/mobile, diagramas, invalidacion, armadura visible, seleccion vinculada y persistencia.
+La aplicacion usa App Router y React 19; `src/app/page.tsx` es la entrada unica de interfaz y `src/app/globals.css` importa Tailwind CSS v4. Las vistas y su logica de interfaz se organizan por funcionalidad en `src/features/`: `analysis`, `quantification`, `normative`, `data-inspector`, `select-by-id`, `project`, `project-browser`, `ribbon`, `sidebar`, `properties`, `workspace`, `dual-model`, `datum`, `model-editing`, `footer-status`, `examples`, `keyboard`, `diagnostics` y `application`. Cada slice mantiene junto su vista, store, bridge o controlador relacionado; los helpers compartidos viven en `src/shared/ui/`. El visor Three.js y sus controladores siguen siendo exclusivamente de cliente y se inician despues del montaje del viewport. Las pestañas abiertas siguen sincronizadas con `ViewManager`; abrir, cerrar y distribuir vistas permanece en el motor. El arranque del motor Three.js sigue desacoplado de la carcasa React. El WASM de Manifold se copia desde su dependencia a `public/vendor/` antes de iniciar o compilar.
 
-`pnpm test:frame-view` comprueba vista unifilar sin contornos de losas por defecto, aislamiento XY/ZY por coordenada, planos vacios, encuadre movil y conservacion de resultados FEM al cambiar filtros visuales.
+`bun run test:contour` comprueba arrastres paralelos, bloqueo Ctrl, dibujo ortogonal, traslacion rigida, deshacer/rehacer y cancelacion en el editor y en los controles del modelo.
+
+`bun run test:dual` comprueba uniones de 827 solidos, vistas fisica/analitica, proyecciones, comparacion desktop/mobile, diagramas, invalidacion, armadura visible, seleccion vinculada y persistencia.
+
+`bun run test:frame-view` comprueba vista unifilar sin contornos de losas por defecto, aislamiento XY/ZY por coordenada, planos vacios, encuadre movil y conservacion de resultados FEM al cambiar filtros visuales.
 
 ## Modelos Fisico Y Analitico
 
@@ -57,7 +61,7 @@ El boton **Ejemplos** sustituye al generador fijo de 5 pisos. Cargar un ejemplo 
 - **Voladizo:** L=3 m, seccion 0.20 x 0.30 m, E=30000 MPa, nu=0.2 y P=10 kN. Sin peso propio. Referencias: Ry=10 kN, |M|=30 kN m, Uy=-6.714667 mm, incluyendo deformacion por cortante con k=5/6. La ecuacion de referencia procede del [ejercicio Timoshenko de TU Delft](https://oit.tudelft.nl/Finite-Elements-in-CEG/main/structural_linear/Exercises/pyjive_timoshenko.html); los valores geometricos y materiales son propios de este ensayo, no una reproduccion de su archivo de ejemplo.
 - **Viga biapoyada:** L=6 m, seccion 0.30 x 0.50 m, E=25000 MPa y q=10 kN/m, sin peso propio. Por equilibrio: Ry izquierda=derecha=30 kN y |M|max=45 kN m.
 
-En Resultados y en la memoria se comparan valores esperados/calculados y errores, con tolerancia relativa 1e-6 mas absoluta 1e-8 en la unidad mostrada. Modificar geometria, cargas, apoyos, materiales o factores invalida la comparacion con el caso original. `pnpm test:examples` prueba este flujo, la persistencia y la confirmacion de reemplazo.
+En Resultados y en la memoria se comparan valores esperados/calculados y errores, con tolerancia relativa 1e-6 mas absoluta 1e-8 en la unidad mostrada. Modificar geometria, cargas, apoyos, materiales o factores invalida la comparacion con el caso original. `bun run test:examples` prueba este flujo, la persistencia y la confirmacion de reemplazo.
 
 Estos son modelos demostrativos y referencias numericas. **No son edificios certificados, no prueban todas las normas ni validan por completo el software.** Faltan los analisis y verificaciones indicados en Alcance De Ingenieria. Los importes de costo se inicializan en cero porque no existe presupuesto de referencia.
 
@@ -70,10 +74,10 @@ Estos son modelos demostrativos y referencias numericas. **No son edificios cert
 - `src/core/model/PhysicalJoins.ts`, `joins.worker.ts`, `PhysicalModelController.ts`: booleanas, concurrencia por revision y actualizacion de mallas/cantidades.
 - `src/core/model/Reinforcement.ts`: jaulas manuales y registro de barras/masa.
 - `src/core/analysis/AnalyticalGraph.ts`: generacion compartida de centroides y conectividad geometrica para vistas y adaptador FEM 2D; referencias GUID/parametro por nudo y rango de origen por tramo.
-- `src/ui/DualModelController.ts`: representaciones vinculadas, camaras, cargas, diagramas y armadura.
+- `src/features/dual-model/DualModelController.ts`: representaciones vinculadas, camaras, cargas, diagramas y armadura.
 - `src/core/model/Project.ts`: formato versionado y persistencia local.
 - `src/core/analysis/`: extraccion, validacion, adaptador FEM, worker y reporte.
-- `src/ui/`: tabla, editor de contornos, proyectos y panel analitico.
+- `src/features/`: vistas de usuario co-localizadas con sus stores y controladores por funcionalidad.
 
 El nombre historico `WasmBridge` permanece, pero la geometria actual se genera en TypeScript/Three.js. El kernel Rust no es el motor de calculo activo.
 
@@ -95,11 +99,11 @@ El volumen neto se muestra solo cuando esta disponible para la revision activa. 
 
 Para evitar mezclar cargas equivalentes existentes, los tramos receptores deben tener D/L manual cero y declaracion D adicional. No se borran cargas manuales automaticamente. En particular, el ejemplo de oficinas ya contiene cargas equivalentes: conciliarlas antes de registrar fuentes. El PP de barras sigue separado del PP de losa. El balance y sus exportaciones muestran D/L total, asignada, fuera, pendiente y cada receptor; las fuentes no se suman nuevamente a los totales de barras. Cambiar fuentes invalida resultados; guardar/restaurar conserva sus declaraciones y detecta geometria obsoleta.
 
-`SurfaceLoads.ts` valida y compila contribuciones serializables para el worker. Balance JSON version 2; proyectos antiguos sin fuentes siguen compatibles. `pnpm test:surfaces` verifica navegador, persistencia, bloqueos, exportaciones y escritorio/movil. Las pruebas numericas usan una losa de 23 m2 con hueco y una viga biapoyada, incluyendo subdivision y factores.
+`SurfaceLoads.ts` valida y compila contribuciones serializables para el worker. Balance JSON version 2; proyectos antiguos sin fuentes siguen compatibles. `bun run test:surfaces` verifica navegador, persistencia, bloqueos, exportaciones y escritorio/movil. Las pruebas numericas usan una losa de 23 m2 con hueco y una viga biapoyada, incluyendo subdivision y factores.
 
 **Limites:** reparto uniforme declarado, no metodo tributario automatico ni FEM de placas. Conserva fuerza asignada, no verifica momento de la fuente o compatibilidad espacial del reparto. Peso de losa bruto con huecos, sin conciliacion de solapes. El porcentaje fuera no acredita asignacion en otro portico. No determina cargas de uso normativas, masas sismicas ni cumplimiento del RNE.
 
-`pnpm test:loads` comprueba ambos modos, sustento faltante, exportaciones, persistencia y formato movil. Las pruebas unitarias usan una viga de 6 m: PP=3.6 kN/m, D manual=10 kN/m y L=2 kN/m dan 93.6 kN con D adicional y 72 kN con D total. Son datos sinteticos, no minimos normativos. Tambien cubren signos/factores, fraccionamiento por GUID, losa con hueco y resultados obsoletos.
+`bun run test:loads` comprueba ambos modos, sustento faltante, exportaciones, persistencia y formato movil. Las pruebas unitarias usan una viga de 6 m: PP=3.6 kN/m, D manual=10 kN/m y L=2 kN/m dan 93.6 kN con D adicional y 72 kN con D total. Son datos sinteticos, no minimos normativos. Tambien cubren signos/factores, fraccionamiento por GUID, losa con hueco y resultados obsoletos.
 
 ### Perfil normativo / primera entrega de REQ-NOR-001
 
@@ -109,7 +113,7 @@ El perfil tiene revision propia y se conserva en el guardado local y `.arm.json`
 
 `src/core/normative/` separa registro documental, perfil y contrato de verificaciones. El contrato distingue no evaluado, datos insuficientes, no aplica justificado, cumple, no cumple y obsoleto; comprueba procedencia por proyecto/revisiones/edicion/motor, entradas finitas y unidad/operador del criterio. Los adaptadores futuros deben validar las entradas y dimensiones especificas de cada regla. No se importan estados de cumplimiento desde el perfil de un archivo externo.
 
-**Alcance pendiente:** todas las reglas RNE del registro siguen sin algoritmo validado; completar un perfil solo cambia de datos insuficientes a no evaluado. No se habilitaron cargas por uso, combinaciones automaticas, sismo ni diseno. Falta cerrar la matriz de articulos E.020/E.060 y revisar el anexo completo E.030-2026 con responsable tecnico. `pnpm test:normative` verifica la interfaz, persistencia, archivos antiguos, exportacion y vista movil; las pruebas del contrato usan un criterio sintetico, no un calculo RNE certificado.
+**Alcance pendiente:** todas las reglas RNE del registro siguen sin algoritmo validado; completar un perfil solo cambia de datos insuficientes a no evaluado. No se habilitaron cargas por uso, combinaciones automaticas, sismo ni diseno. Falta cerrar la matriz de articulos E.020/E.060 y revisar el anexo completo E.030-2026 con responsable tecnico. `bun run test:normative` verifica la interfaz, persistencia, archivos antiguos, exportacion y vista movil; las pruebas del contrato usan un criterio sintetico, no un calculo RNE certificado.
 
 La normativa objetivo es Peru: RNE E.020, E.030 y E.060. **Esta version no acredita cumplimiento normativo ni es un sustituto validado de un programa de diseno estructural.** Las cargas, propiedades y factores son entradas del usuario, no valores normativos certificados.
 
@@ -119,7 +123,7 @@ Las vigas se ubican analiticamente en el centro de su seccion, no sobre su linea
 
 Los planos guardados con otra generacion, geometria divergente o entradas pendientes quedan conservados pero no vigentes. Al regenerar se pide confirmacion porque se reinician apoyos, cargas y liberaciones; no se transfieren automaticamente a otra topologia. Los proyectos conservan incluso analisis obsoletos de elementos eliminados, marcados para regeneracion y sin resultados vigentes. Restaurar cantidades no incrementa las versiones de los elementos BIM.
 
-`pnpm test:connectivity` comprueba correspondencia vista/calculo, trazabilidad de tramos, migracion explicita de analisis antiguos y lienzos de escritorio/movil. Las pruebas unitarias incluyen cruces XY/ZY, elementos separados, tolerancia, duplicados y conservacion de longitudes/cargas. El grafo 3D es geometrico: el solver sigue siendo 2D; las conexiones requieren revision profesional.
+`bun run test:connectivity` comprueba correspondencia vista/calculo, trazabilidad de tramos, migracion explicita de analisis antiguos y lienzos de escritorio/movil. Las pruebas unitarias incluyen cruces XY/ZY, elementos separados, tolerancia, duplicados y conservacion de longitudes/cargas. El grafo 3D es geometrico: el solver sigue siendo 2D; las conexiones requieren revision profesional.
 
 El metrado de concreto descuenta intersecciones de solidos. El encofrado sigue estimado por categoria, sin descontar caras de contacto: losa = area inferior menos huecos; viga = fondo y dos caras laterales; columna = perimetro por longitud; zapata = caras laterales. No sustituye un presupuesto definitivo. Unidades geometricas m, fuerzas kN, modulo elastico MPa; resistencia del concreto en el catalogo kgf/cm2. Los vertices de las mallas booleanas usan precision Float32; no es un kernel CAD de precision arbitraria.
 
@@ -137,5 +141,6 @@ Fuente oficial para revisar las normas y sus modificaciones: [Reglamento Naciona
 # ARM-Structural-v.2
 # ARM-Structural-v.2
 # ARM-Structural-v.2
+# ARM-Structural-v.4
 # ARM-Structural-v.4
 # ARM-Structural-v.4
