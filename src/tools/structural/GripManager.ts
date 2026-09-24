@@ -7,25 +7,19 @@ import { BimView } from '../../core/views/BimView';
 import { VisualStyle } from '../../config/theme.config';
 import { validateDefinition } from '../../core/model/Geometry';
 import { applyGeometry } from './ElementGeometry';
-import { AxisConstraint, edgeNormal, slideEdge, translateDefinition } from '../../core/model/GeometryEditing';
-
-export interface GripHandleData {
-  elementId: string;
-  gripType: 'linear_start' | 'linear_end' | 'col_top' | 'col_base' | 'slab_vertex' | 'slab_edge_mid' | 'void_vertex' | 'move';
-  index?: number;
-  originalPoint: Vector3D;
-  edgeStartIndex?: number;
-  edgeEndIndex?: number;
-  voidIndex?: number;
-}
+import { AxisConstraint } from '../../core/model/GeometryEditing';
+import { StructuralGripRenderer, type GripHandleData } from './StructuralGripRenderer';
+import { GripGeometryEditor } from './GripGeometryEditor';
+export type { GripHandleData } from './StructuralGripRenderer';
 
 export class GripManager {
-  public gripsGroup = new THREE.Group();
+  private readonly gripRenderer = new StructuralGripRenderer();
+  private readonly geometryEditor: GripGeometryEditor;
+  public gripsGroup = this.gripRenderer.group;
   public activeGrip: THREE.Mesh | null = null;
   public isDragging = false;
 
   private currentElement: ManagedElement | null = null;
-  private gripMeshes: THREE.Mesh[] = [];
   private initialDefinition: StructuralDefinition | null = null;
   private floatingBadge: HTMLElement | null = null;
   private dragPlane = new THREE.Plane();
@@ -41,7 +35,7 @@ export class GripManager {
     private onElementModified: (element: ManagedElement) => void,
     private currentStyleGetter: () => VisualStyle
   ) {
-    this.gripsGroup.name = 'structural-grips-group';
+    this.geometryEditor = new GripGeometryEditor(wasm);
     this.scene.add(this.gripsGroup);
     this.createFloatingBadge();
   }
@@ -164,249 +158,27 @@ export class GripManager {
       this.currentElement = null;
       return;
     }
-
     this.currentElement = element;
-    const def = this.ensureDefinition(element);
-
-    if (def.type === 'beam') {
-      this.addLinearGrip(element.id, 'linear_start', def.startPoint, 0);
-      this.addLinearGrip(element.id, 'linear_end', def.endPoint, 1);
-    } else if (def.type === 'column') {
-      if (def.columnStyle === 'slanted') {
-        this.addLinearGrip(element.id, 'col_base', def.basePoint, 0);
-        this.addLinearGrip(element.id, 'col_top', def.topPoint, 1);
-      } else {
-        this.addColumnHeightGrip(element.id, 'col_base', def.basePoint);
-        this.addColumnHeightGrip(element.id, 'col_top', def.topPoint);
-      }
-    } else if (def.type === 'slab') {
-      // 1. Vértices del contorno exterior
-      def.boundary.forEach((pt, idx) => {
-        this.addVertexGrip(element.id, 'slab_vertex', pt, idx);
-      });
-      // 2. Puntos medios de los bordes para desplazamiento de aristas completas
-      for (let i = 0; i < def.boundary.length; i++) {
-        const j = (i + 1) % def.boundary.length;
-        const mid: Vector3D = {
-          x: (def.boundary[i].x + def.boundary[j].x) / 2,
-          y: (def.boundary[i].y + def.boundary[j].y) / 2,
-          z: (def.boundary[i].z + def.boundary[j].z) / 2,
-        };
-        this.addEdgeMidGrip(element.id, mid, i, j);
-      }
-      // 3. Vértices de huecos interiores (voids/shafts)
-      if (def.voids) {
-        def.voids.forEach((vPoly, vIdx) => {
-          vPoly.forEach((vPt, pIdx) => {
-            this.addVoidVertexGrip(element.id, vPt, vIdx, pIdx);
-            const next=vPoly[(pIdx+1)%vPoly.length];
-            this.addEdgeMidGrip(element.id,{x:(vPt.x+next.x)/2,y:vPt.y,z:(vPt.z+next.z)/2},pIdx,(pIdx+1)%vPoly.length,vIdx);
-          });
-        });
-      }
-    } else if (def.type === 'footing') {
-      // Grips perimetrales para zapatas
-      const halfW = def.width / 2;
-      const halfL = def.length / 2;
-      const corners: Vector3D[] = [
-        { x: def.center.x - halfW, y: def.center.y, z: def.center.z - halfL },
-        { x: def.center.x + halfW, y: def.center.y, z: def.center.z - halfL },
-        { x: def.center.x + halfW, y: def.center.y, z: def.center.z + halfL },
-        { x: def.center.x - halfW, y: def.center.y, z: def.center.z + halfL },
-      ];
-      corners.forEach((c, idx) => {
-        this.addVertexGrip(element.id, 'slab_vertex', c, idx);
-      });
-    }
-    element.mesh.geometry.computeBoundingBox();
-    const center=element.mesh.geometry.boundingBox!.getCenter(new THREE.Vector3());
-    if(def.type==='slab')center.y=def.elevationY;
-    this.addLinearGrip(element.id,'move',{x:center.x,y:center.y,z:center.z},0);
-    (this.gripMeshes[this.gripMeshes.length-1].material as THREE.MeshBasicMaterial).color.setHex(0xf2b544);
-  }
-
-  private addLinearGrip(
-    elementId: string,
-    role: 'linear_start' | 'linear_end' | 'col_base' | 'col_top' | 'move',
-    pos: Vector3D,
-    index: number
-  ): void {
-    const geo = new THREE.SphereGeometry(0.18, 16, 16);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x00f0ff,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos.x, pos.y, pos.z);
-    mesh.renderOrder = 10000;
-
-    // Núcleo central blanco brillante para máximo contraste
-    const inner = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false })
-    );
-    inner.renderOrder = 10001;
-    mesh.add(inner);
-
-    mesh.userData = {
-      elementId,
-      gripType: role,
-      index,
-      originalPoint: { ...pos },
-    } as GripHandleData;
-
-    this.gripMeshes.push(mesh);
-    this.gripsGroup.add(mesh);
-  }
-
-  private addColumnHeightGrip(
-    elementId: string,
-    role: 'col_base' | 'col_top',
-    pos: Vector3D
-  ): void {
-    const isTop = role === 'col_top';
-    const geo = new THREE.ConeGeometry(0.18, 0.32, 16);
-    if (!isTop) {
-      geo.rotateX(Math.PI);
-    }
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos.x, pos.y + (isTop ? 0.16 : -0.16), pos.z);
-    mesh.renderOrder = 10000;
-
-    mesh.userData = {
-      elementId,
-      gripType: role,
-      originalPoint: { ...pos },
-    } as GripHandleData;
-
-    this.gripMeshes.push(mesh);
-    this.gripsGroup.add(mesh);
-  }
-
-  private addVertexGrip(
-    elementId: string,
-    type: 'slab_vertex',
-    pos: Vector3D,
-    index: number
-  ): void {
-    const geo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x0284c7,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos.x, pos.y + 0.12, pos.z);
-    mesh.renderOrder = 10000;
-
-    const outline = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geo),
-      new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false })
-    );
-    outline.renderOrder = 10001;
-    mesh.add(outline);
-
-    mesh.userData = {
-      elementId,
-      gripType: type,
-      index,
-      originalPoint: { ...pos },
-    } as GripHandleData;
-
-    this.gripMeshes.push(mesh);
-    this.gripsGroup.add(mesh);
-  }
-
-  private addEdgeMidGrip(
-    elementId: string,
-    pos: Vector3D,
-    startIndex: number,
-    endIndex: number,
-    voidIndex?:number
-  ): void {
-    const geo = new THREE.OctahedronGeometry(0.16);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x10b981,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos.x, pos.y + 0.1, pos.z);
-    mesh.renderOrder = 10000;
-
-    mesh.userData = {
-      elementId,
-      gripType: 'slab_edge_mid',
-      edgeStartIndex: startIndex,
-      edgeEndIndex: endIndex,
-      voidIndex,
-      originalPoint: { ...pos },
-    } as GripHandleData;
-
-    this.gripMeshes.push(mesh);
-    this.gripsGroup.add(mesh);
-  }
-
-  private addVoidVertexGrip(
-    elementId: string,
-    pos: Vector3D,
-    voidIndex: number,
-    pointIndex: number
-  ): void {
-    const geo = new THREE.SphereGeometry(0.15, 12, 12);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xf59e0b,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(pos.x, pos.y + 0.1, pos.z);
-    mesh.renderOrder = 10000;
-
-    mesh.userData = {
-      elementId,
-      gripType: 'void_vertex',
-      voidIndex,
-      index: pointIndex,
-      originalPoint: { ...pos },
-    } as GripHandleData;
-
-    this.gripMeshes.push(mesh);
-    this.gripsGroup.add(mesh);
+    this.gripRenderer.render(element, this.ensureDefinition(element));
   }
 
   public clearGrips(): void {
     this.hideGuide();
-    while (this.gripsGroup.children.length > 0) {
-      const obj = this.gripsGroup.children[0];
-      this.gripsGroup.remove(obj);
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry.dispose();
-        if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-        else (obj.material as THREE.Material).dispose();
-      }
-    }
-    this.gripMeshes = [];
+    this.gripRenderer.clear();
     this.activeGrip = null;
     this.isDragging = false;
     this.hideFloatingBadge();
   }
 
   public getGripMeshes(): THREE.Mesh[] {
-    return this.gripMeshes;
+    return this.gripRenderer.getMeshes();
   }
-
   /**
    * Detección de puntero sobre un grip
    */
   public testPointerIntersection(e: MouseEvent): THREE.Mesh | null {
-    if (this.gripMeshes.length === 0) return null;
+    const gripMeshes = this.gripRenderer.getMeshes();
+    if (gripMeshes.length === 0) return null;
 
     const activeView = this.activeViewGetter();
     const rect = activeView.domElement.getBoundingClientRect();
@@ -423,7 +195,7 @@ export class GripManager {
     );
     this.raycaster.setFromCamera(mouse, activeView.camera);
 
-    const hits = this.raycaster.intersectObjects(this.gripMeshes, true);
+    const hits = this.raycaster.intersectObjects(gripMeshes, true);
     if (hits.length > 0) {
       const topObj = hits[0].object;
       const gripMesh = (topObj.parent && topObj.parent instanceof THREE.Mesh && topObj.parent.userData?.gripType)
@@ -531,143 +303,22 @@ export class GripManager {
     snappedX=origin.x+delta.x;snappedY=origin.y+delta.y;snappedZ=origin.z+delta.z;
     const axis=this.constraint.axis;
     if(axis)this.showGuide(origin,{x:axis==='x'?1:0,y:axis==='y'?1:0,z:axis==='z'?1:0});else this.hideGuide();
-    if(gripData.gripType==='move'||gripData.gripType==='slab_edge_mid'){
-      let candidate=structuredClone(this.initialDefinition);
-      try{
-        if(gripData.gripType==='move')candidate=translateDefinition(candidate,delta);
-        else if(candidate.type==='slab'){
-          const ring=gripData.voidIndex===undefined?candidate.boundary:candidate.voids![gripData.voidIndex];
-          const normal=edgeNormal(ring,gripData.edgeStartIndex!);
-          // Edge sliding has its own normal constraint; it never acquires a tangential drift.
-          const raw={x:hitPoint.x-origin.x,y:0,z:hitPoint.z-origin.z};
-          const amount=Math.round((raw.x*normal.x+raw.z*normal.z)*100)/100;
-          const moved=slideEdge(ring,gripData.edgeStartIndex!,{x:normal.x*amount,y:0,z:normal.z*amount});
-          if(gripData.voidIndex===undefined)candidate.boundary=moved;else candidate.voids![gripData.voidIndex]=moved;
-          snappedX=origin.x+normal.x*amount;snappedZ=origin.z+normal.z*amount;
-          this.showGuide(origin,normal);
-        }
-        validateDefinition(candidate);applyGeometry(this.currentElement,candidate,this.wasm);
-        this.activeGrip.position.set(snappedX,snappedY+.05,snappedZ);
-        this.showFloatingBadge(e.clientX,e.clientY,gripData.gripType==='move'?`Mover: ${Math.hypot(delta.x,delta.y,delta.z).toFixed(2)} m`:'Borde paralelo');
-      }catch(error){this.showFloatingBadge(e.clientX,e.clientY,(error as Error).message);}
+    const result = this.geometryEditor.update({
+      element: this.currentElement,
+      initialDefinition: this.initialDefinition,
+      grip: gripData,
+      snappedPoint: { x: snappedX, y: snappedY, z: snappedZ },
+      delta,
+      hitPoint: { x: hitPoint.x, y: hitPoint.y, z: hitPoint.z },
+    });
+    if (result.status === 'rejected') {
+      if (result.guideDirection) this.showGuide(origin, result.guideDirection);
+      this.showFloatingBadge(e.clientX, e.clientY, result.message);
       return;
     }
-    this.currentElement.definition=structuredClone(this.initialDefinition);
-    const def = this.currentElement.definition;
-    let badgeText = '';
-
-    // ==========================================
-    // A. VIGAS LINEALES
-    // ==========================================
-    if (def.type === 'beam') {
-      if (gripData.gripType === 'linear_start') {
-        def.startPoint = { x: snappedX, y: snappedY, z: snappedZ };
-      } else if (gripData.gripType === 'linear_end') {
-        def.endPoint = { x: snappedX, y: snappedY, z: snappedZ };
-      }
-
-      const p1 = new THREE.Vector3(def.startPoint.x, def.startPoint.y, def.startPoint.z);
-      const p2 = new THREE.Vector3(def.endPoint.x, def.endPoint.y, def.endPoint.z);
-      const newLen = p1.distanceTo(p2);
-      badgeText = `Longitud L: ${newLen.toFixed(2)} m`;
-
-      // Reconstruir geometría interactiva de viga
-      const meshData = this.wasm.createArbitraryBeam(def.startPoint, def.endPoint, def.width, def.height);
-      this.applyLiveGeometry(meshData.geometry);
-      def.height = def.height;
-    }
-
-    // ==========================================
-    // B. COLUMNAS
-    // ==========================================
-    else if (def.type === 'column') {
-      if (def.columnStyle === 'slanted') {
-        if (gripData.gripType === 'col_base') {
-          def.basePoint = { x: snappedX, y: snappedY, z: snappedZ };
-        } else if (gripData.gripType === 'col_top') {
-          def.topPoint = { x: snappedX, y: snappedY, z: snappedZ };
-        }
-        const p1 = new THREE.Vector3(def.basePoint.x, def.basePoint.y, def.basePoint.z);
-        const p2 = new THREE.Vector3(def.topPoint.x, def.topPoint.y, def.topPoint.z);
-        badgeText = `Longitud Inclinada: ${p1.distanceTo(p2).toFixed(2)} m (ΔY: ${(p2.y - p1.y).toFixed(2)}m)`;
-        const meshData = this.wasm.createSlantedColumn(def.basePoint, def.topPoint, def.width, def.depth);
-        this.applyLiveGeometry(meshData.geometry);
-      } else {
-        // Vertical pura
-        if (gripData.gripType === 'col_top') {
-          def.topPoint.y = Math.max(def.basePoint.y + 0.5, snappedY);
-          const h = def.topPoint.y - def.basePoint.y;
-          badgeText = `Altura h: ${h.toFixed(2)} m (Cota Sup: ${def.topPoint.y >= 0 ? '+' : ''}${def.topPoint.y.toFixed(2)}m)`;
-        } else if (gripData.gripType === 'col_base') {
-          def.basePoint.y = Math.min(def.topPoint.y - 0.5, snappedY);
-          const h = def.topPoint.y - def.basePoint.y;
-          badgeText = `Altura h: ${h.toFixed(2)} m (Cota Base: ${def.basePoint.y >= 0 ? '+' : ''}${def.basePoint.y.toFixed(2)}m)`;
-        }
-        const meshData = this.wasm.createColumn(
-          def.basePoint.x,
-          def.basePoint.z,
-          def.basePoint.y,
-          def.topPoint.y,
-          def.width,
-          def.depth
-        );
-        this.applyLiveGeometry(meshData.geometry);
-      }
-    }
-
-    // ==========================================
-    // C. LOSAS / SUELOS
-    // ==========================================
-    else if (def.type === 'slab') {
-      if (gripData.gripType === 'slab_vertex' && gripData.index !== undefined) {
-        def.boundary[gripData.index] = { x: snappedX, y: def.elevationY, z: snappedZ };
-        badgeText = `Vértice ${gripData.index + 1}: (${snappedX.toFixed(2)}m, ${snappedZ.toFixed(2)}m)`;
-      } else if (gripData.gripType === 'void_vertex' && gripData.voidIndex !== undefined && gripData.index !== undefined && def.voids) {
-        def.voids[gripData.voidIndex][gripData.index] = { x: snappedX, y: def.elevationY, z: snappedZ };
-        badgeText = `Hueco Interior - Vértice ${gripData.index + 1}`;
-      }
-
-      const meshData = this.wasm.createPolygonSlab(def.boundary, def.voids, def.thickness, def.elevationY);
-      this.applyLiveGeometry(meshData.geometry);
-    }
-
-    // ==========================================
-    // D. ZAPATAS
-    // ==========================================
-    else if (def.type === 'footing') {
-      const idx = gripData.index || 0;
-      const halfW = Math.max(0.5, Math.abs(snappedX - def.center.x));
-      const halfL = Math.max(0.5, Math.abs(snappedZ - def.center.z));
-      def.width = halfW * 2;
-      def.length = halfL * 2;
-      badgeText = `Cimentación: ${def.width.toFixed(2)}m × ${def.length.toFixed(2)}m`;
-      const meshData = this.wasm.createFooting(
-        def.center.x,
-        def.center.y,
-        def.center.z,
-        def.width,
-        def.length,
-        def.height
-      );
-      this.applyLiveGeometry(meshData.geometry);
-    }
-
-    // Mover posición visual del grip activo
-    this.activeGrip.position.set(snappedX, snappedY + (this.currentElement.type === 'column' ? 0.16 : 0.05), snappedZ);
-    this.showFloatingBadge(e.clientX, e.clientY, badgeText);
-  }
-
-  private applyLiveGeometry(newGeom: THREE.BufferGeometry): void {
-    if (!this.currentElement) return;
-
-    this.currentElement.mesh.geometry.dispose();
-    this.currentElement.mesh.geometry = newGeom;
-
-    // Actualizar aristas nítidas CAD
-    this.currentElement.line.geometry.dispose();
-    this.currentElement.line.geometry = new THREE.EdgesGeometry(newGeom, 20);
-
-    this.currentElement.mesh.updateMatrixWorld(true);
+    if (result.guideDirection) this.showGuide(origin, result.guideDirection);
+    this.activeGrip.position.set(result.gripPosition.x, result.gripPosition.y, result.gripPosition.z);
+    this.showFloatingBadge(e.clientX, e.clientY, result.badgeText);
   }
 
   private showGuide(origin:Vector3D,direction:Vector3D):void {

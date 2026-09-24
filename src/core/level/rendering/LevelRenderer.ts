@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Level } from '../types/LevelTypes';
 import { LevelSprites } from './LevelSprites';
+import { LevelEndpointRenderer, type LevelEndpointRenderResult } from './LevelEndpointRenderer';
 import { THEME } from '../../../config/theme.config';
 import { DIMENSIONS } from '../../../config/dimensions.config';
 
@@ -33,6 +34,7 @@ export class LevelRenderer {
   public lineMeshMap = new Map<string, THREE.Line[]>();
   public headSpritesMap = new Map<string, THREE.Sprite[]>();
   private highlightMeshesMap = new Map<string, THREE.Mesh[]>();
+  private endpointRenderer: LevelEndpointRenderer;
 
   constructor() {
     this.rootGroup.name = 'BimLevelRenderer';
@@ -42,6 +44,12 @@ export class LevelRenderer {
     this.rootGroup.add(this.headsGroup);
     this.rootGroup.add(this.controlsGroup);
     this.rootGroup.add(this.hitProxiesGroup);
+    this.endpointRenderer = new LevelEndpointRenderer({
+      linesGroup: this.linesGroup,
+      headsGroup: this.headsGroup,
+      hitProxiesGroup: this.hitProxiesGroup,
+      controlsGroup: this.controlsGroup,
+    });
   }
 
   /**
@@ -223,213 +231,27 @@ export class LevelRenderer {
       this.hitProxiesGroup.add(lineHitMeshZ);
       this.levelHitMeshes.push(lineHitMeshZ);
 
-      // 4. CABEZALES REVIT, CODOS Y CONTROLES INTERACTIVOS
-      const endElbowY = lvl.endElbow?.active ? lvl.endElbow.verticalOffset : 0;
-      const startElbowY = lvl.startElbow?.active ? lvl.startElbow.verticalOffset : 0;
-
-      // 4.1 Extremo Final (Derecha / Eje +X y Eje +Z)
-      if (lvl.showEndBubble) {
-        const headPosX = new THREE.Vector3(xEnd + DIMENSIONS.levels.headOffset, y + endElbowY, 0);
-        const headSpriteX = LevelSprites.createLevelHeadSprite(lvl, isSelected, isHovered);
-        headSpriteX.position.copy(headPosX);
-        headSpriteX.userData = { levelId: lvl.id, isLevelHead: true, end: 'end' };
-        this.headsGroup.add(headSpriteX);
-        lvlSprites.push(headSpriteX);
-
-        const headPosZ = new THREE.Vector3(0, y + endElbowY, zEnd + DIMENSIONS.levels.headOffset);
-        const headSpriteZ = LevelSprites.createLevelHeadSprite(lvl, isSelected, isHovered);
-        headSpriteZ.position.copy(headPosZ);
-        headSpriteZ.userData = { levelId: lvl.id, isLevelHead: true, end: 'end' };
-        this.headsGroup.add(headSpriteZ);
-        lvlSprites.push(headSpriteZ);
-
-        // Línea de hombro / quiebre de codo (Elbow break line)
-        if (lvl.endElbow?.active) {
-          const elbowPtsX = [
-            new THREE.Vector3(xEnd - 1.6, y, 0),
-            new THREE.Vector3(xEnd, y + endElbowY, 0),
-            new THREE.Vector3(xEnd + DIMENSIONS.levels.headOffset, y + endElbowY, 0),
-          ];
-          const elbowLineX = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(elbowPtsX),
-            new THREE.LineBasicMaterial({ color: 0x9333ea, linewidth: 2.5 })
-          );
-          elbowLineX.userData = { levelId: lvl.id };
-          this.linesGroup.add(elbowLineX);
-          lvlLines.push(elbowLineX);
-
-          const elbowPtsZ = [
-            new THREE.Vector3(0, y, zEnd - 1.6),
-            new THREE.Vector3(0, y + endElbowY, zEnd),
-            new THREE.Vector3(0, y + endElbowY, zEnd + DIMENSIONS.levels.headOffset),
-          ];
-          const elbowLineZ = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(elbowPtsZ),
-            new THREE.LineBasicMaterial({ color: 0x9333ea, linewidth: 2.5 })
-          );
-          elbowLineZ.userData = { levelId: lvl.id };
-          this.linesGroup.add(elbowLineZ);
-          lvlLines.push(elbowLineZ);
-        }
-
-        // Hitbox generosa para la burbuja final (esfera completa de radio 1.6m)
-        const bHitX = LevelSprites.createBubbleHitMesh(headPosX, lvl.id, 'end');
-        this.hitProxiesGroup.add(bHitX);
-        this.levelHitMeshes.push(bHitX);
-        this.bubbleHits.push({ levelId: lvl.id, end: 'end', mesh: bHitX, worldPos: headPosX });
-
-        const bHitZ = LevelSprites.createBubbleHitMesh(headPosZ, lvl.id, 'end');
-        this.hitProxiesGroup.add(bHitZ);
-        this.levelHitMeshes.push(bHitZ);
-        this.bubbleHits.push({ levelId: lvl.id, end: 'end', mesh: bHitZ, worldPos: headPosZ });
-
-        // Si el nivel está seleccionado: controles interactivos
-        if (isSelected) {
-          // Botón de toggle de Codo (icono de quiebre Revit)
-          const elbowTogglePos = new THREE.Vector3(xEnd + 0.8, y + endElbowY, 0);
-          const elbowToggle = LevelSprites.createElbowToggleSprite(
-            elbowTogglePos,
-            lvl.id,
-            'end',
-            !!lvl.endElbow?.active
-          );
-          this.controlsGroup.add(elbowToggle);
-          this.elbowToggles.push({ levelId: lvl.id, end: 'end', mesh: elbowToggle });
-
-          // Checkbox para visibilidad de burbuja
-          const checkboxPos = new THREE.Vector3(xEnd - 1.4, y, 0);
-          const chkBox = LevelSprites.createCheckboxSprite(checkboxPos, lvl.id, 'end', true);
-          this.controlsGroup.add(chkBox);
-          this.bubbleToggles.push({ levelId: lvl.id, end: 'end', mesh: chkBox });
-
-          // Grip para alargar / achicar el nivel (con hitbox que cubre TODO el círculo)
-          const gripEnd = LevelSprites.createGripHandle(new THREE.Vector3(xEnd, y, 0), lvl.id, 'end');
-          this.controlsGroup.add(gripEnd.visual);
-          this.hitProxiesGroup.add(gripEnd.hitMesh);
-          this.grips.push({ levelId: lvl.id, end: 'end', mesh: gripEnd.hitMesh });
-
-          // Grip interactivo para MOVER la posición del codo una vez activo
-          if (lvl.endElbow?.active) {
-            const elbowGripPos = new THREE.Vector3(xEnd, y + endElbowY, 0);
-            const elbowGrip = LevelSprites.createElbowGripHandle(elbowGripPos, lvl.id, 'end');
-            this.controlsGroup.add(elbowGrip.visual);
-            this.hitProxiesGroup.add(elbowGrip.hitMesh);
-            this.elbowGrips.push({ levelId: lvl.id, end: 'end', mesh: elbowGrip.hitMesh });
-          }
-        }
-      } else if (isSelected) {
-        // Burbuja oculta pero nivel seleccionado: mostrar checkbox para encenderla
-        const checkboxPos = new THREE.Vector3(xEnd - 1.4, y, 0);
-        const chkBox = LevelSprites.createCheckboxSprite(checkboxPos, lvl.id, 'end', false);
-        this.controlsGroup.add(chkBox);
-        this.bubbleToggles.push({ levelId: lvl.id, end: 'end', mesh: chkBox });
-
-        // Permitir alargar/achicar incluso con burbuja apagada
-        const gripEnd = LevelSprites.createGripHandle(new THREE.Vector3(xEnd, y, 0), lvl.id, 'end');
-        this.controlsGroup.add(gripEnd.visual);
-        this.hitProxiesGroup.add(gripEnd.hitMesh);
-        this.grips.push({ levelId: lvl.id, end: 'end', mesh: gripEnd.hitMesh });
-      }
-
-      // 4.2 Extremo Inicial (Izquierda / Eje -X y Eje -Z)
-      if (lvl.showStartBubble) {
-        const headPosX = new THREE.Vector3(xStart - DIMENSIONS.levels.headOffset, y + startElbowY, 0);
-        const headSpriteX = LevelSprites.createLevelHeadSprite(lvl, isSelected, isHovered);
-        headSpriteX.position.copy(headPosX);
-        headSpriteX.userData = { levelId: lvl.id, isLevelHead: true, end: 'start' };
-        this.headsGroup.add(headSpriteX);
-        lvlSprites.push(headSpriteX);
-
-        const headPosZ = new THREE.Vector3(0, y + startElbowY, zStart - DIMENSIONS.levels.headOffset);
-        const headSpriteZ = LevelSprites.createLevelHeadSprite(lvl, isSelected, isHovered);
-        headSpriteZ.position.copy(headPosZ);
-        headSpriteZ.userData = { levelId: lvl.id, isLevelHead: true, end: 'start' };
-        this.headsGroup.add(headSpriteZ);
-        lvlSprites.push(headSpriteZ);
-
-        if (lvl.startElbow?.active) {
-          const elbowPtsX = [
-            new THREE.Vector3(xStart + 1.6, y, 0),
-            new THREE.Vector3(xStart, y + startElbowY, 0),
-            new THREE.Vector3(xStart - DIMENSIONS.levels.headOffset, y + startElbowY, 0),
-          ];
-          const elbowLineX = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(elbowPtsX),
-            new THREE.LineBasicMaterial({ color: 0x9333ea, linewidth: 2.5 })
-          );
-          elbowLineX.userData = { levelId: lvl.id };
-          this.linesGroup.add(elbowLineX);
-          lvlLines.push(elbowLineX);
-
-          const elbowPtsZ = [
-            new THREE.Vector3(0, y, zStart + 1.6),
-            new THREE.Vector3(0, y + startElbowY, zStart),
-            new THREE.Vector3(0, y + startElbowY, zStart - DIMENSIONS.levels.headOffset),
-          ];
-          const elbowLineZ = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(elbowPtsZ),
-            new THREE.LineBasicMaterial({ color: 0x9333ea, linewidth: 2.5 })
-          );
-          elbowLineZ.userData = { levelId: lvl.id };
-          this.linesGroup.add(elbowLineZ);
-          lvlLines.push(elbowLineZ);
-        }
-
-        const bHitX = LevelSprites.createBubbleHitMesh(headPosX, lvl.id, 'start');
-        this.hitProxiesGroup.add(bHitX);
-        this.levelHitMeshes.push(bHitX);
-        this.bubbleHits.push({ levelId: lvl.id, end: 'start', mesh: bHitX, worldPos: headPosX });
-
-        const bHitZ = LevelSprites.createBubbleHitMesh(headPosZ, lvl.id, 'start');
-        this.hitProxiesGroup.add(bHitZ);
-        this.levelHitMeshes.push(bHitZ);
-        this.bubbleHits.push({ levelId: lvl.id, end: 'start', mesh: bHitZ, worldPos: headPosZ });
-
-        if (isSelected) {
-          const elbowTogglePos = new THREE.Vector3(xStart - 0.8, y + startElbowY, 0);
-          const elbowToggle = LevelSprites.createElbowToggleSprite(
-            elbowTogglePos,
-            lvl.id,
-            'start',
-            !!lvl.startElbow?.active
-          );
-          this.controlsGroup.add(elbowToggle);
-          this.elbowToggles.push({ levelId: lvl.id, end: 'start', mesh: elbowToggle });
-
-          const checkboxPos = new THREE.Vector3(xStart + 1.4, y, 0);
-          const chkBox = LevelSprites.createCheckboxSprite(checkboxPos, lvl.id, 'start', true);
-          this.controlsGroup.add(chkBox);
-          this.bubbleToggles.push({ levelId: lvl.id, end: 'start', mesh: chkBox });
-
-          // Grip para alargar / achicar el extremo inicial
-          const gripStart = LevelSprites.createGripHandle(new THREE.Vector3(xStart, y, 0), lvl.id, 'start');
-          this.controlsGroup.add(gripStart.visual);
-          this.hitProxiesGroup.add(gripStart.hitMesh);
-          this.grips.push({ levelId: lvl.id, end: 'start', mesh: gripStart.hitMesh });
-
-          // Grip interactivo para MOVER la posición del codo inicial
-          if (lvl.startElbow?.active) {
-            const elbowGripPos = new THREE.Vector3(xStart, y + startElbowY, 0);
-            const elbowGrip = LevelSprites.createElbowGripHandle(elbowGripPos, lvl.id, 'start');
-            this.controlsGroup.add(elbowGrip.visual);
-            this.hitProxiesGroup.add(elbowGrip.hitMesh);
-            this.elbowGrips.push({ levelId: lvl.id, end: 'start', mesh: elbowGrip.hitMesh });
-          }
-        }
-      } else if (isSelected) {
-        const checkboxPos = new THREE.Vector3(xStart + 1.4, y, 0);
-        const chkBox = LevelSprites.createCheckboxSprite(checkboxPos, lvl.id, 'start', false);
-        this.controlsGroup.add(chkBox);
-        this.bubbleToggles.push({ levelId: lvl.id, end: 'start', mesh: chkBox });
-
-        const gripStart = LevelSprites.createGripHandle(new THREE.Vector3(xStart, y, 0), lvl.id, 'start');
-        this.controlsGroup.add(gripStart.visual);
-        this.hitProxiesGroup.add(gripStart.hitMesh);
-        this.grips.push({ levelId: lvl.id, end: 'start', mesh: gripStart.hitMesh });
-      }
+      // 4. CABEZALES, CODOS Y CONTROLES DE AMBOS EXTREMOS
+      this.collectEndpoint(this.endpointRenderer.render(
+        lvl, 'end', { x: xEnd, z: zEnd }, y, isSelected, isHovered,
+      ), lvlLines, lvlSprites);
+      this.collectEndpoint(this.endpointRenderer.render(
+        lvl, 'start', { x: xStart, z: zStart }, y, isSelected, isHovered,
+      ), lvlLines, lvlSprites);
 
       this.headSpritesMap.set(lvl.id, lvlSprites);
     });
+  }
+
+  private collectEndpoint(result: LevelEndpointRenderResult, lines: THREE.Line[], sprites: THREE.Sprite[]): void {
+    lines.push(...result.lines);
+    sprites.push(...result.sprites);
+    this.levelHitMeshes.push(...result.hitMeshes);
+    this.bubbleHits.push(...result.bubbleHits);
+    this.elbowToggles.push(...result.elbowToggles);
+    this.bubbleToggles.push(...result.bubbleToggles);
+    this.grips.push(...result.grips);
+    this.elbowGrips.push(...result.elbowGrips);
   }
 
   /**

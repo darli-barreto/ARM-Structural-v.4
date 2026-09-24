@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { frameDocuments, segmentInFrame } from '../src/core/analysis/FrameView';
 import { createExampleProject } from '../src/core/model/ExampleProjects';

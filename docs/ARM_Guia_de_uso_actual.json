@@ -2,10 +2,10 @@
   {
     "heading": "Guía de uso de ARM Structural",
     "blocks": [
-      "Funciones implementadas al 20 de septiembre de 2026",
-      "Esta guía describe el uso actual: modelado y edición, metrados, vistas físicas y analíticas, análisis 2D, fuentes superficiales y exportación. <b>Utilice copias de ensayo hasta que cada alcance haya sido validado profesionalmente.</b> Las cargas, materiales y factores introducidos son responsabilidad de quien define el modelo; los ejemplos no acreditan cumplimiento del RNE.",
+      "Funciones implementadas al 23 de septiembre de 2026",
+      "Esta guía describe el uso actual: modelado y edición, metrados, vistas físicas y analíticas, análisis 2D, fuentes superficiales, exportación y fichas React para elementos, rejillas y niveles. La interfaz usa Next.js App Router; la escena 3D se inicia desde el runtime cliente existente. <b>Utilice copias de ensayo hasta que cada alcance haya sido validado profesionalmente.</b> Las cargas, materiales y factores introducidos son responsabilidad de quien define el modelo; los ejemplos no acreditan cumplimiento del RNE.",
       "Inicio seguro",
-      "<b>1.</b> Abra <link href=\"http://127.0.0.1:3015/\" color=\"#155c7a\">http://127.0.0.1:3015/</link> con el servidor local en ejecución. Si no responde, desde la carpeta del proyecto ejecute <font name=\"Courier\">pnpm dev --port 3015</font>. No cambie de puerto u origen esperando recuperar automáticamente el mismo almacenamiento del navegador.",
+      "<b>1.</b> Desde la carpeta del proyecto ejecute <font name=\"Courier\">bun run dev</font> y abra <link href=\"http://localhost:3000/\" color=\"#155c7a\">http://localhost:3000/</link>. Si el puerto está ocupado, inicie Next.js en otro puerto y use el mismo origen durante toda la sesión: el almacenamiento local del navegador depende del origen.",
       "<b>2.</b> Antes de abrir otro proyecto o cargar un ejemplo, pulse <b>Guardar</b>. Se descarga proyecto.arm.json; conserve una copia identificada por fecha/revisión. El guardado automático local no sustituye este respaldo.",
       "<b>3.</b> Para empezar una prueba, pulse <b>Ejemplos</b>, seleccione un caso y elija <b>Cargar modelo</b> o <b>Cargar y analizar</b>. Confirme el reemplazo solo después de respaldar su proyecto. Para el primer cálculo use la viga biapoyada.",
       {
@@ -36,6 +36,8 @@
           ]
         ]
       },
+      "Propiedades de rejillas y niveles",
+      "Seleccione un elemento, una rejilla o un nivel para abrir su ficha React. Las fichas estructurales muestran jerarquía IFC, material, marca, sector, f’c, fase, nivel, desfase y cantidades; permiten copiar el GUID, abrir la categoría en Tablas o suprimir el elemento. Rejillas y Niveles exponen sus controles geométricos y de visualización. Las ediciones se sincronizan con el modelo BIM; las cantidades se recalculan cuando cambia geometría.",
       "Unidades que no deben mezclarse",
       "Geometría: m. Fuerza: kN. Carga lineal: kN/m. Carga superficial: kN/m2. Peso unitario: kN/m3. Módulo E: MPa. Momento: kN m. Desplazamientos de resultados: mm. Resistencia del concreto en el catálogo: kgf/cm2. Masa teórica de acero: kg. No intercambie kg, kgf, toneladas de masa y toneladas-fuerza.",
       "<b>PP</b> significa peso propio; <b>D</b>, carga permanente; <b>L</b>, carga viva. La letra L también puede representar longitud en las fórmulas de los ejemplos: la unidad m o kN/m permite distinguirla.",
@@ -323,7 +325,7 @@
       "Lista de cierre",
       "Confirme ediciones; revise geometría y unidades; resuelva advertencias; compruebe balance y reacciones; identifique cargas fuera del alcance; exporte proyecto y salidas necesarias; espere Guardado local; registre qué verificaciones siguen pendientes. No continúe a una fase no implementada como si hubiera sido aprobada.",
       "Apoyo para mantenimiento y pruebas",
-      "Desde la carpeta del proyecto: pnpm lint, pnpm test, pnpm build. Con el servidor activo: pnpm test:surfaces, pnpm test:loads y pnpm test:dual. Estos ensayos son controles de software, no certificación RNE. El informe de avances adjunto desarrolla la ruta F0-F10 para completar y validar el producto."
+      "Desde la carpeta del proyecto: bun run lint, bun run test, bun run build. Con el servidor activo, bun run test:surfaces, bun run test:loads y bun run test:dual verifican flujos del modelo. bun run test:browser requiere un Chromium que Playwright pueda iniciar. Estos ensayos son controles de software, no certificación RNE. El informe adjunto desarrolla la ruta F0-F10."
     ]
   }
 ]

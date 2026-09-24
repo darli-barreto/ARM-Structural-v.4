@@ -1,4 +1,4 @@
-import {test} from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {defaultNormativeProfile,parseNormativeProfile,updateNormativeProfile} from '../src/core/normative/Profile';
 import {EDITIONS,REGISTRY_VERSION,REQUIREMENTS,STANDARD_IDS,type RequirementDefinition} from '../src/core/normative/Registry';

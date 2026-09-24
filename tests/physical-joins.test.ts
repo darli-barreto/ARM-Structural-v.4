@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import Module from 'manifold-3d';
 import { resolvePhysicalJoins,JoinInput } from '../src/core/model/PhysicalJoins';

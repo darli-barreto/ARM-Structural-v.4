@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { AxisConstraint, slideEdge, translateDefinition } from '../src/core/model/GeometryEditing';
 import { quantities, validateDefinition, StructuralDefinition, Vector3D } from '../src/core/model/Geometry';

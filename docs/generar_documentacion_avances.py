@@ -46,7 +46,7 @@ class Document:
         self.pdf.setFillColor(colors.black)
         self.pdf.setFont('Helvetica', 8)
         self.pdf.drawString(LEFT, H - 32, 'ARM STRUCTURAL  /  ' + self.short)
-        self.pdf.drawRightString(W - RIGHT, H - 32, '20 SEPTIEMBRE 2026')
+        self.pdf.drawRightString(W - RIGHT, H - 32, '23 SEPTIEMBRE 2026')
         self.pdf.setFont('Helvetica-Bold', 19 if self.page == 1 else 17)
         self.pdf.drawString(LEFT, H - TOP, heading)
         self.y = H - TOP - 22
@@ -113,7 +113,7 @@ class Document:
 
 def progress_report():
     d = Document('ARM_Informe_de_avances_y_pendientes.pdf', 'ARM Structural Informe de avances y tareas pendientes', 'AVANCES Y PLAN DE CIERRE', 7)
-    d.new_page('Informe de avances y pendientes', 'Corte de avance al 20 de septiembre de 2026  |  Plan F0 a F10')
+    d.new_page('Informe de avances y pendientes', 'Corte de avance al 23 de septiembre de 2026  |  Plan F0 a F10')
     d.add('Contamos con una base BIM operativa, metrados netos de concreto, vistas vinculadas y análisis lineal de pórticos 2D con cargas trazables. <b>El producto todavía no cubre el diseño integral de un edificio ni acredita cumplimiento del RNE.</b> El siguiente cierre técnico debe concentrarse en las cargas, la idealización y su validación antes de habilitar sismo o diseño resistente.')
     d.add('Este informe permite decidir el orden de desarrollo y la evidencia necesaria para completar cada fase. Los estados se refieren al alcance total de la fase: una función implementada o una prueba aprobada no equivale a una fase cerrada. No asignamos porcentajes globales sin estimación del esfuerzo y criterios de cierre aprobados.')
     d.add('<b>Prioridades:</b> P0 = condición crítica para habilitar el alcance; P1 = desarrollo posterior según dependencias. <b>Siglas:</b> PP = peso propio; FEM = elementos finitos; GUID = identificador único del elemento BIM.', 'small')
@@ -140,11 +140,12 @@ def progress_report():
         ('Cargas y fuentes superficiales', 'PP de barras, D/L manuales y nodales separados. D adicional o D total con PP incluido. Fuentes de losa con área descontando huecos, propiedades declaradas, reparto porcentual a vigas horizontales y balance asignado/fuera/pendiente. Se bloquean repartos incompletos y conflictos con D/L manuales; no se valida la compatibilidad espacial del reparto.'),
         ('Normativa y persistencia', 'Perfil por proyecto, ediciones propuestas, evidencia y matriz de pendientes. Contrato con seis estados de verificación; ninguna regla RNE real está habilitada como comprobación validada. Guardado local y archivo de proyecto conservan geometría y entradas; los cambios invalidan resultados dependientes.'),
         ('Armadura y documentos', 'Jaulas manuales de vigas/columnas, transparencia y masa teórica. No hay diseño E.060 ni despiece constructivo completo. Memoria HTML del pórtico, balance CSV/JSON y proyecto exportable; no son todavía un expediente técnico coordinado.'),
+        ('Interfaz y migración Next.js', 'La carcasa App Router/React incluye cinta, navegación, navegador BIM, pestañas, pie, ejemplos y fichas React para elementos estructurales, rejillas y niveles. La escena Three.js se inicia desde el runtime cliente existente; el trabajo restante se concentra en desacoplar progresivamente la inicialización y validar los flujos de navegador. Bun gestiona scripts y dependencias.'),
     ]
     for title, text in advances:
         d.heading(title)
         d.add(text)
-    d.add('<b>Evidencia de la última entrega de código:</b> 55 pruebas unitarias aprobadas, TypeScript y compilación correctos; cinco flujos de navegador aprobados. Se detalla su alcance en la página 7. Esta revisión documental no sustituye esas pruebas ni añade certificación.', 'small')
+    d.add('<b>Evidencia del corte:</b> 62 pruebas unitarias aprobadas; TypeScript y build de producción Next.js 16.3.6 correctos; respuesta HTTP 200 verificada. La suite de navegador sigue pendiente: el lanzamiento automatizado de Chromium agotó el tiempo de espera y no se declara aprobada. Nada de esto certifica cumplimiento estructural o normativo.', 'small')
 
     d.new_page('Cierre de las fases F0 a F4', 'Prioridad P0 salvo F3  |  Responsables por asignar')
     phases = [
@@ -171,7 +172,7 @@ def progress_report():
         d.heading(title)
         d.add(text)
 
-    d.new_page('Próximas tareas en orden de prioridad', 'Identificadores de seguimiento propuestos para las siguientes entregas')
+    d.new_page('Próximas tareas prioritarias', 'Identificadores de seguimiento propuestos para las siguientes entregas')
     d.table(['Tarea', 'Entregable y prueba de aceptación', 'Dependencia'], [
         ['T01  P0\nF2 Peso propio', 'Asignar cada encuentro físico una sola vez a la ruta de cargas. Ensayo viga-columna-losa con hueco: peso de fuentes = peso asignado + exclusiones justificadas; sin modificar A ni I resistentes.', 'Base actual'],
         ['T02  P0\nF1/F2 Receptores', 'Comprobar ubicación, nivel, conectividad y cobertura de las vigas. Avisar incompatibilidades; conciliar porcentajes entre pórticos y preservar el residual y su sustento.', 'T01'],
@@ -208,7 +209,7 @@ def progress_report():
 
     d.new_page('Evidencia y referencias de seguimiento', 'Cómo comprobar el avance y mantener actualizado este informe')
     d.heading('Ejecución registrada en la última entrega')
-    d.add('55 pruebas unitarias aprobadas; verificación TypeScript y compilación Vite correctas. Cinco flujos de navegador: superficies, balance de cargas, vistas duales, ejemplos y prueba general. Incluyen escritorio/móvil, persistencia, exportaciones e invalidación. Las advertencias de compilación sobre tamaño del paquete y externalización de node:module por Manifold permanecen como deuda técnica; no se presentaron como resueltas.')
+    d.add('62 pruebas unitarias aprobadas; TypeScript y build de producción Next.js 16.3.6 correctos; respuesta HTTP 200 verificada. La suite automatizada de navegador no pudo completar el lanzamiento de Chromium y queda pendiente para una máquina o entorno compatible. La comprobación HTTP no valida interacción visual ni edición completa.')
     d.table(['Referencia', 'Resultado esperado o alcance'], [
         ['Viga biapoyada', 'L=6 m, q=10 kN/m, PP=0: Ry=30 kN en cada apoyo; |M|max=45 kN m.'],
         ['Declaración de D', 'L=6 m; PP=3.6, D=10 y L=2 kN/m: 93.6 kN con D adicional; 72 kN con D total que incluye PP.'],
@@ -220,16 +221,16 @@ def progress_report():
     d.heading('Fuentes oficiales para la revisión normativa')
     d.add('La publicación del MVCS identifica la modificación de E.030 mediante la <link href="https://www.gob.pe/institucion/vivienda/normas-legales/8081915-183-2026-vivienda" color="#155c7a">RM 183-2026-VIVIENDA</link>. La <link href="https://www.gob.pe/institucion/vivienda/normas-legales/8219609-217-2026-vivienda" color="#155c7a">RM 217-2026-VIVIENDA</link> modifica su disposición transitoria para proyectos en curso. El perfil debe justificar la edición aplicable; esta referencia no reemplaza la revisión integral del texto técnico.', 'small')
     d.add('<link href="https://www.gob.pe/institucion/vivienda/informes-publicaciones/2309793-reglamento-nacional-de-edificaciones-rne" color="#155c7a">Compendio oficial RNE del MVCS</link>: localizar E.020, E.030, E.050 y E.060 y revisar sus modificatorias. Consulta de publicaciones: 20 de septiembre de 2026. El historial atribuido al CIP es un insumo del proyecto; no constituye por sí solo homologación, norma ni autorización.', 'small')
-    d.add('<b>Actualización sugerida:</b> al cerrar cada T01-T06 y cada fase, registrar versión, evidencia, fecha, responsable y aprobación; reemplazar el estado solo cuando se cumpla su puerta de aceptación.', 'small')
+    d.add('<b>Actualización sugerida:</b> al cerrar cada T01-T06 y cada fase, registrar versión, evidencia, fecha, responsable y aprobación; reemplazar el estado solo cuando se cumpla su puerta de aceptación. La migración Next.js es trabajo de plataforma, no cierre de una fase normativa.', 'small')
     d.finish()
 
 
 def user_guide():
     d = Document('ARM_Guia_de_uso_actual.pdf', 'ARM Structural Guía de uso de funciones implementadas', 'GUÍA DE USO', 9)
-    d.new_page('Guía de uso de ARM Structural', 'Funciones implementadas al 20 de septiembre de 2026')
-    d.add('Esta guía describe el uso actual: modelado y edición, metrados, vistas físicas y analíticas, análisis 2D, fuentes superficiales y exportación. <b>Utilice copias de ensayo hasta que cada alcance haya sido validado profesionalmente.</b> Las cargas, materiales y factores introducidos son responsabilidad de quien define el modelo; los ejemplos no acreditan cumplimiento del RNE.')
+    d.new_page('Guía de uso de ARM Structural', 'Funciones implementadas al 23 de septiembre de 2026')
+    d.add('Esta guía describe el uso actual: modelado y edición, metrados, vistas físicas y analíticas, análisis 2D, fuentes superficiales, exportación y fichas React para elementos, rejillas y niveles. La interfaz usa Next.js App Router; la escena 3D se inicia desde el runtime cliente existente. <b>Utilice copias de ensayo hasta que cada alcance haya sido validado profesionalmente.</b> Las cargas, materiales y factores introducidos son responsabilidad de quien define el modelo; los ejemplos no acreditan cumplimiento del RNE.')
     d.heading('Inicio seguro')
-    d.add('<b>1.</b> Abra <link href="http://127.0.0.1:3015/" color="#155c7a">http://127.0.0.1:3015/</link> con el servidor local en ejecución. Si no responde, desde la carpeta del proyecto ejecute <font name="Courier">pnpm dev --port 3015</font>. No cambie de puerto u origen esperando recuperar automáticamente el mismo almacenamiento del navegador.')
+    d.add('<b>1.</b> Desde la carpeta del proyecto ejecute <font name="Courier">bun run dev</font> y abra <link href="http://localhost:3000/" color="#155c7a">http://localhost:3000/</link>. Si el puerto está ocupado, inicie Next.js en otro puerto y use el mismo origen durante toda la sesión: el almacenamiento local del navegador depende del origen.')
     d.add('<b>2.</b> Antes de abrir otro proyecto o cargar un ejemplo, pulse <b>Guardar</b>. Se descarga proyecto.arm.json; conserve una copia identificada por fecha/revisión. El guardado automático local no sustituye este respaldo.')
     d.add('<b>3.</b> Para empezar una prueba, pulse <b>Ejemplos</b>, seleccione un caso y elija <b>Cargar modelo</b> o <b>Cargar y analizar</b>. Confirme el reemplazo solo después de respaldar su proyecto. Para el primer cálculo use la viga biapoyada.')
     d.table(['Control', 'Uso actual'], [
@@ -239,6 +240,8 @@ def user_guide():
         ['Normativa', 'Registrar alcance, edición propuesta y evidencia; no ejecutar diseño normativo.'],
         ['Físico / Analítico', 'Cambiar representación; Comparar activa dos vistas vinculadas.'],
     ], [.31, .69])
+    d.heading('Propiedades de rejillas y niveles')
+    d.add('Seleccione un elemento, una rejilla o un nivel para abrir su ficha React. Las fichas estructurales muestran jerarquía IFC, material, marca, sector, f’c, fase, nivel, desfase y cantidades; permiten copiar el GUID, abrir la categoría en Tablas o suprimir el elemento. Rejillas y Niveles exponen sus controles geométricos y de visualización. Las ediciones se sincronizan con el modelo BIM; las cantidades se recalculan cuando cambia geometría.')
     d.heading('Unidades que no deben mezclarse')
     d.add('Geometría: m. Fuerza: kN. Carga lineal: kN/m. Carga superficial: kN/m2. Peso unitario: kN/m3. Módulo E: MPa. Momento: kN m. Desplazamientos de resultados: mm. Resistencia del concreto en el catálogo: kgf/cm2. Masa teórica de acero: kg. No intercambie kg, kgf, toneladas de masa y toneladas-fuerza.')
     d.add('<b>PP</b> significa peso propio; <b>D</b>, carga permanente; <b>L</b>, carga viva. La letra L también puede representar longitud en las fórmulas de los ejemplos: la unidad m o kN/m permite distinguirla.', 'small')
@@ -377,7 +380,7 @@ def user_guide():
     d.heading('Lista de cierre')
     d.add('Confirme ediciones; revise geometría y unidades; resuelva advertencias; compruebe balance y reacciones; identifique cargas fuera del alcance; exporte proyecto y salidas necesarias; espere Guardado local; registre qué verificaciones siguen pendientes. No continúe a una fase no implementada como si hubiera sido aprobada.')
     d.heading('Apoyo para mantenimiento y pruebas')
-    d.add('Desde la carpeta del proyecto: pnpm lint, pnpm test, pnpm build. Con el servidor activo: pnpm test:surfaces, pnpm test:loads y pnpm test:dual. Estos ensayos son controles de software, no certificación RNE. El informe de avances adjunto desarrolla la ruta F0-F10 para completar y validar el producto.', 'small')
+    d.add('Desde la carpeta del proyecto: bun run lint, bun run test, bun run build. Con el servidor activo, bun run test:surfaces, bun run test:loads y bun run test:dual verifican flujos del modelo. bun run test:browser requiere un Chromium que Playwright pueda iniciar. Estos ensayos son controles de software, no certificación RNE. El informe adjunto desarrolla la ruta F0-F10.', 'small')
     d.finish()
 
 

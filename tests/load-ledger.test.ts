@@ -1,4 +1,4 @@
-import {test} from 'node:test';
+import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {assembleFrameLoads,memberLineLoad} from '../src/core/analysis/Loads';
 import {buildLoadLedger,loadLedgerCsv} from '../src/core/analysis/LoadLedger';

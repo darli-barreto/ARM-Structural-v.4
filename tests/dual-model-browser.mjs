@@ -14,7 +14,7 @@ async function ready(){
   while(Date.now()<deadline){
     const info=await dbInfo();
     if(info.count>0&&info.ready){
-      await page.waitForFunction(()=>document.querySelector('#model-status')?.dataset.joinState==='ready');return;
+      await page.waitForFunction(()=>document.querySelector('#model-toolbar')?.dataset.joinState==='ready');return;
     }
     await page.evaluate(()=>new Promise(done=>requestAnimationFrame(done)));
   }
@@ -33,10 +33,10 @@ try{
   const bounds=await page.locator('#app-workspace').boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=391);
   await page.setViewportSize({width:1440,height:1000});await page.locator('#model-sync').uncheck();
   await page.locator('#model-scope').selectOption('calculation');await page.locator('#model-calculate').click();await page.locator('#analysis-solve').click();await page.waitForFunction(()=>document.querySelector('#analysis-status')?.textContent.includes('Equilibrio relativo'));await page.locator('#analysis-close').click();
-  await page.locator('#model-diagram').selectOption('moment');await page.waitForFunction(()=>document.querySelector('#model-status')?.textContent.includes('|max|'));await page.locator('#model-projection').selectOption('elevation');await pixels('dual-moment');
+  await page.locator('#model-diagram').selectOption('moment');await page.waitForFunction(()=>document.querySelector('#model-toolbar')?.dataset.modelStatus?.includes('|max|'));await page.locator('#model-projection').selectOption('elevation');await pixels('dual-moment');
   // Quantities-only changes do not invalidate analysis; geometry changes do.
   await page.evaluate(async()=>{const {BimDatabase}=await import(performance.getEntriesByType('resource').find(e=>e.name.includes('/src/core/database/BimDatabase.ts')).name);const db=BimDatabase.getInstance(),d=db.getAllElements().find(d=>d.geometry.definition.type==='beam');const def=structuredClone(d.geometry.definition);def.width+=.01;db.updateGeometry(d.uniqueId,def);});
-  await page.waitForFunction(()=>document.querySelector('#model-status')?.textContent.includes('OBSOLETA'));await ready();assert.match(await page.locator('#model-status').textContent(),/Sin resultados vigentes/);
+  await page.waitForFunction(()=>document.querySelector('#model-toolbar')?.dataset.modelStatus?.includes('OBSOLETA'));await ready();assert.match(await page.locator('#model-toolbar').getAttribute('data-model-status'),/Sin resultados vigentes/);
   await page.locator('#model-physical').click();await page.keyboard.press('Control+Shift+s');await page.locator('#sched-search').fill('VIG');
   const focus=page.locator('#sched-body [data-focus]').first();await focus.click();
   await page.locator('#model-rebar').click();await page.locator('#rebar-dialog button[type="submit"]').click();await ready();const rebarPixels=await pixels('dual-manual-rebar');
@@ -51,8 +51,8 @@ try{
   const img=await pixels('dual-selection-source'),candidates=[];
   for(let y=30;y<img.height-50;y++)for(let x=0;x<img.width;x++){const i=(y*img.width+x)*4;if(img.data[i+1]-img.data[i]>20&&Math.abs(img.data[i+1]-img.data[i+2])<15&&img.data[i+1]<220)candidates.push({x,y});}
   assert.ok(candidates.length>30);const pt=candidates[Math.floor(candidates.length/2)],rect=await page.locator('#canvas-container canvas').boundingBox();
-  await page.mouse.click(rect.x+pt.x,rect.y+pt.y);await page.waitForFunction(()=>document.querySelector('#model-status')?.dataset.selectedId);
-  const linked=await page.locator('#model-status').getAttribute('data-selected-id');await page.locator('#model-physical').click();assert.equal(await page.locator('#model-status').getAttribute('data-selected-id'),linked);
+  await page.mouse.click(rect.x+pt.x,rect.y+pt.y);await page.waitForFunction(()=>document.querySelector('#model-toolbar')?.dataset.selectedId);
+  const linked=await page.locator('#model-toolbar').getAttribute('data-selected-id');await page.locator('#model-physical').click();assert.equal(await page.locator('#model-toolbar').getAttribute('data-selected-id'),linked);
   await page.locator('#model-projection').selectOption('3d');const before=await pixels('dual-before-orbit');
   const viewport=await page.locator('[data-view-id="view-3d"] .view-panel-content').boundingBox();await page.mouse.move(viewport.x+viewport.width*.5,viewport.y+viewport.height*.5);await page.mouse.down();await page.mouse.move(viewport.x+viewport.width*.6,viewport.y+viewport.height*.6,{steps:10});await page.mouse.up();
   const after=await pixels('dual-after-orbit');let changed=0;for(let i=0;i<before.data.length;i+=4)if(Math.abs(before.data[i]-after.data[i])>20)changed++;assert.ok(changed>1000,'Orbit updates rendered model');

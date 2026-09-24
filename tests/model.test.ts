@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { quantities,validateDefinition,SlabDefinition } from '../src/core/model/Geometry';
 import { BimDatabase } from '../src/core/database/BimDatabase';

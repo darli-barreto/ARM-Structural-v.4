@@ -15,8 +15,9 @@ export class SnappingManager {
   public activeLevelIdx = 0;
   public enabled = false;
   public activeViewGetter: () => BimView;
+  private onMouseMove = (event: MouseEvent): void => this.handleMouseMove(event);
 
-  constructor(scene: THREE.Scene, activeViewGetter: () => BimView) {
+  constructor(private scene: THREE.Scene, activeViewGetter: () => BimView) {
     this.activeViewGetter = activeViewGetter;
 
     this.snapRing = new THREE.Mesh(
@@ -29,11 +30,10 @@ export class SnappingManager {
     );
     this.snapRing.visible = false;
     scene.add(this.snapRing);
-
-    window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+    window.addEventListener('mousemove', this.onMouseMove);
   }
 
-  private onMouseMove(e: MouseEvent): void {
+  private handleMouseMove(e: MouseEvent): void {
     if (!this.enabled) {
       this.snapRing.visible = false;
       this.currentSnappedPosition = null;
@@ -86,5 +86,13 @@ export class SnappingManager {
         this.currentSnappedPosition = { x: snapX, z: snapZ };
       }
     }
+  }
+
+  public dispose(): void {
+    window.removeEventListener('mousemove', this.onMouseMove);
+    this.scene.remove(this.snapRing);
+    this.snapRing.geometry.dispose();
+    (this.snapRing.material as THREE.Material).dispose();
+    this.currentSnappedPosition = null;
   }
 }

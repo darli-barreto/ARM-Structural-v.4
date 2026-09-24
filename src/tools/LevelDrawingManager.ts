@@ -3,8 +3,8 @@ import { Level, LevelDrawMode } from '../core/level/types/LevelTypes';
 import { LevelQuickGenerator } from '../core/level/generator/LevelQuickGenerator';
 import { LevelSystem } from '../core/LevelSystem';
 import { BimView } from '../core/views/BimView';
-import { THEME } from '../config/theme.config';
 import { DIMENSIONS } from '../config/dimensions.config';
+import { LevelPreviewRenderer } from './LevelPreviewRenderer';
 
 export class LevelDrawingManager {
   public drawMode: LevelDrawMode = 'line';
@@ -18,14 +18,26 @@ export class LevelDrawingManager {
   private lastMouseEvent: MouseEvent | null = null;
 
   // Previsualización en escena Three.js
-  public previewGroup = new THREE.Group();
-  private previewLine: THREE.Line | null = null;
-  private previewBubble: THREE.Sprite | null = null;
-  private dimensionSprite: THREE.Sprite | null = null;
-  private alignmentGuide: THREE.Line | null = null;
+  public previewGroup: THREE.Group;
+  private previewRenderer: LevelPreviewRenderer;
 
   private raycaster = new THREE.Raycaster();
   private intersectPoint = new THREE.Vector3();
+  private onKeyDown = (event: KeyboardEvent): void => {
+    if (!this.enabled) return;
+    if (event.key === 'Shift' || event.key === 'Control') {
+      this.isOrthoActive = true;
+      if (this.lastMouseEvent) this.handlePointerMove(this.lastMouseEvent);
+    } else if (event.key === 'Escape') {
+      this.cancelCurrentDraw();
+      this.onStatusMessage('Trazado de nivel cancelado.');
+    }
+  };
+  private onKeyUp = (event: KeyboardEvent): void => {
+    if (event.key !== 'Shift' && event.key !== 'Control') return;
+    this.isOrthoActive = false;
+    if (this.enabled && this.lastMouseEvent) this.handlePointerMove(this.lastMouseEvent);
+  };
 
   // Candidato para modo Pick Lines
   private hoveredLevelForPick: Level | null = null;
@@ -37,30 +49,17 @@ export class LevelDrawingManager {
     private activeViewGetter: () => BimView,
     private onStatusMessage: (msg: string) => void
   ) {
-    this.previewGroup.name = 'LevelDrawingPreview';
+    this.previewRenderer = new LevelPreviewRenderer(this.levelSystem);
+    this.previewGroup = this.previewRenderer.group;
     this.scene.add(this.previewGroup);
 
-    window.addEventListener('keydown', (e) => {
-      if (!this.enabled) return;
-      if (e.key === 'Shift' || e.key === 'Control') {
-        this.isOrthoActive = true;
-        if (this.lastMouseEvent) {
-          this.handlePointerMove(this.lastMouseEvent);
-        }
-      } else if (e.key === 'Escape') {
-        this.cancelCurrentDraw();
-        this.onStatusMessage('Trazado de nivel cancelado.');
-      }
-    });
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+  }
 
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'Shift' || e.key === 'Control') {
-        this.isOrthoActive = false;
-        if (this.enabled && this.lastMouseEvent) {
-          this.handlePointerMove(this.lastMouseEvent);
-        }
-      }
-    });
+  public dispose(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
   }
 
   public setMode(mode: LevelDrawMode): void {
@@ -331,190 +330,15 @@ export class LevelDrawingManager {
     }
   }
 
-  private renderStartTooltip(pt: THREE.Vector3): void {
-    this.clearPreview();
-    const elevFormatted = LevelQuickGenerator.formatElevation(pt.y);
-    const text = `Cota: ${elevFormatted}`;
-    const sp = this.createDimensionSprite(text);
-    sp.position.set(pt.x, pt.y + 1.2, pt.z);
-    this.previewGroup.add(sp);
-    this.dimensionSprite = sp;
+  private renderStartTooltip(point: THREE.Vector3): void {
+    this.previewRenderer.renderStartTooltip(point);
   }
 
-  private renderLinePreview(p1: THREE.Vector3, p2: THREE.Vector3, isPickLine = false): void {
-    this.clearPreview();
-
-    // 1. Línea elástica de vista previa
-    const pts = [p1, p2];
-    const geom = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineDashedMaterial({
-      color: isPickLine ? 0x9333ea : 0x0284c7,
-      dashSize: 0.6,
-      gapSize: 0.3,
-      linewidth: 2,
-    });
-    const line = new THREE.Line(geom, mat);
-    line.computeLineDistances();
-    this.previewGroup.add(line);
-    this.previewLine = line;
-
-    // 2. Cabezal diana provisional en el extremo p2
-    const tempLevel: Level = {
-      id: 'preview',
-      name: 'Nuevo Nivel',
-      elevation: p2.y,
-      start: { x: p1.x, z: p1.z },
-      end: { x: p2.x, z: p2.z },
-      showStartBubble: false,
-      showEndBubble: true,
-      isLocked: true,
-      hasPlanView: this.makePlanView,
-    };
-    const headSprite = this.createPreviewHeadSprite(tempLevel);
-    headSprite.position.set(p2.x + 2.5, p2.y, p2.z);
-    this.previewGroup.add(headSprite);
-    this.previewBubble = headSprite;
-
-    // 3. Etiqueta flotante de dimensión (Longitud y Cota)
-    const dist = Math.hypot(p2.x - p1.x, p2.z - p1.z);
-    const elevText = LevelQuickGenerator.formatElevation(p2.y);
-    const label = `${dist.toFixed(2)}m  •  Cota: ${elevText}`;
-    const dimSprite = this.createDimensionSprite(label);
-    const midX = (p1.x + p2.x) / 2;
-    const midY = (p1.y + p2.y) / 2 + 1.2;
-    const midZ = (p1.z + p2.z) / 2;
-    dimSprite.position.set(midX, midY, midZ);
-    this.previewGroup.add(dimSprite);
-    this.dimensionSprite = dimSprite;
-
-    // 4. Guía de alineación horizontal con otros niveles
-    this.checkHorizontalAlignment(p2);
-  }
-
-  private checkHorizontalAlignment(p2: THREE.Vector3): void {
-    const levels = this.levelSystem.getLevels();
-    const half = DIMENSIONS.levels.boundsExtentDefault;
-    const tol = 0.5;
-
-    levels.forEach(lvl => {
-      // Si la cota o los extremos se alinean
-      if (Math.abs(p2.x - half) < tol || Math.abs(p2.x - (-half)) < tol) {
-        const guidePts = [
-          new THREE.Vector3(p2.x, lvl.elevation, 0),
-          new THREE.Vector3(p2.x, p2.y, 0),
-        ];
-        const gGeom = new THREE.BufferGeometry().setFromPoints(guidePts);
-        const gMat = new THREE.LineDashedMaterial({
-          color: 0x38bdf8,
-          dashSize: 0.4,
-          gapSize: 0.2,
-        });
-        const gLine = new THREE.Line(gGeom, gMat);
-        gLine.computeLineDistances();
-        this.previewGroup.add(gLine);
-        this.alignmentGuide = gLine;
-      }
-    });
-  }
-
-  private createDimensionSprite(text: string): THREE.Sprite {
-    const canvas = document.createElement('canvas');
-    canvas.width = 300;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d')!;
-
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-    ctx.roundRect(4, 4, 292, 56, 8);
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#38bdf8';
-    ctx.stroke();
-
-    ctx.font = 'bold 20px "Consolas", monospace';
-    ctx.fillStyle = '#38bdf8';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 150, 32);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({
-      map: texture,
-      depthTest: false,
-      transparent: true,
-    });
-    const sp = new THREE.Sprite(mat);
-    sp.scale.set(3.6, 0.8, 1);
-    sp.renderOrder = DIMENSIONS.renderOrders.drawingDimension;
-    return sp;
-  }
-
-  private createPreviewHeadSprite(lvl: Level): THREE.Sprite {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 96;
-    const ctx = canvas.getContext('2d')!;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const bx = 36, by = 48, r = 24;
-    ctx.beginPath();
-    ctx.arc(bx, by, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#0284c7';
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.arc(bx, by, r, 0, Math.PI / 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.arc(bx, by, r, Math.PI, (3 * Math.PI) / 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#38bdf8';
-    ctx.stroke();
-
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillStyle = '#0284c7';
-    ctx.textAlign = 'left';
-    ctx.fillText('Nuevo Nivel', bx + r + 8, by - 4);
-
-    ctx.font = 'bold 16px monospace';
-    ctx.fillStyle = '#0369a1';
-    ctx.fillText(LevelQuickGenerator.formatElevation(lvl.elevation), bx + r + 8, by + 20);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({
-      map: texture,
-      depthTest: false,
-      transparent: true,
-    });
-    const sp = new THREE.Sprite(mat);
-    sp.scale.set(4.8, 1.8, 1);
-    sp.renderOrder = DIMENSIONS.renderOrders.drawingDimension;
-    return sp;
+  private renderLinePreview(start: THREE.Vector3, end: THREE.Vector3, isPickLine = false): void {
+    this.previewRenderer.renderLine(start, end, isPickLine, this.makePlanView);
   }
 
   private clearPreview(): void {
-    while (this.previewGroup.children.length > 0) {
-      const c = this.previewGroup.children[0];
-      if (c instanceof THREE.Mesh || c instanceof THREE.Line) {
-        c.geometry?.dispose();
-        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-        else (c.material as THREE.Material)?.dispose();
-      } else if (c instanceof THREE.Sprite) {
-        c.material.map?.dispose();
-        c.material.dispose();
-      }
-      this.previewGroup.remove(c);
-    }
-    this.previewLine = null;
-    this.previewBubble = null;
-    this.dimensionSprite = null;
-    this.alignmentGuide = null;
+    this.previewRenderer.clear();
   }
 }

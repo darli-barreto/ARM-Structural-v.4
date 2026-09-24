@@ -17,6 +17,11 @@ export class SelectionManager {
   private selectionBox: THREE.BoxHelper | null = null;
   private selectionMesh: THREE.Mesh | null = null;
   private hoverBox: THREE.BoxHelper | null = null;
+  private onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return;
+    this.clearSelection();
+    this.clearHover();
+  };
 
   constructor(
     private scene: THREE.Scene,
@@ -24,12 +29,13 @@ export class SelectionManager {
     private registry: ElementRegistry,
     private onSelectionChanged: (element: ManagedElement | null) => void
   ) {
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.clearSelection();
-        this.clearHover();
-      }
-    });
+    window.addEventListener('keydown', this.onKeyDown);
+  }
+
+  public dispose(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    this.clearSelection();
+    this.clearHover();
   }
 
   private updateRaycaster(event: MouseEvent): boolean {

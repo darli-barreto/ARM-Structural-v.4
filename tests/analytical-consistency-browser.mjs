@@ -18,11 +18,11 @@ try{
   await page.goto(process.env.APP_URL||'http://127.0.0.1:3015',{waitUntil:'domcontentloaded'});
   await page.locator('#btn-full-building').click();await page.locator('input[value="office-8"]').check();await page.locator('#examples-load').click();
   await page.locator('#model-analytical').click();await page.locator('#model-frame-plane').selectOption('XY');
-  await page.waitForFunction(()=>document.querySelector('#model-status')?.dataset.axisNodes==='103');
-  assert.equal(await page.locator('#model-status').getAttribute('data-axis-segments'),'136');await pixels('unified-axes');
+  await page.waitForFunction(()=>document.querySelector('#model-toolbar')?.dataset.axisNodes==='103');
+  assert.equal(await page.locator('#model-toolbar').getAttribute('data-axis-segments'),'136');await pixels('unified-axes');
   await page.locator('#model-scope').selectOption('calculation');
-  await page.waitForFunction(()=>document.querySelector('#model-status')?.dataset.calculationNodes==='103');
-  assert.equal(await page.locator('#model-status').getAttribute('data-calculation-segments'),'136');await pixels('unified-calculation');
+  await page.waitForFunction(()=>document.querySelector('#model-toolbar')?.dataset.calculationNodes==='103');
+  assert.equal(await page.locator('#model-toolbar').getAttribute('data-calculation-segments'),'136');await pixels('unified-calculation');
   await page.setViewportSize({width:390,height:844});await page.locator('#model-fit').click();await pixels('unified-mobile');
   await page.setViewportSize({width:1440,height:1000});await page.locator('#project-analysis').click();
   await page.locator('#analysis-solve').click();await page.waitForFunction(()=>document.querySelector('#analysis-status')?.textContent.includes('Equilibrio relativo'));

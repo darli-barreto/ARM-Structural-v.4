@@ -2,7 +2,7 @@
   {
     "heading": "Informe de avances y pendientes",
     "blocks": [
-      "Corte de avance al 20 de septiembre de 2026  |  Plan F0 a F10",
+      "Corte de avance al 23 de septiembre de 2026  |  Plan F0 a F10",
       "Contamos con una base BIM operativa, metrados netos de concreto, vistas vinculadas y análisis lineal de pórticos 2D con cargas trazables. <b>El producto todavía no cubre el diseño integral de un edificio ni acredita cumplimiento del RNE.</b> El siguiente cierre técnico debe concentrarse en las cargas, la idealización y su validación antes de habilitar sismo o diseño resistente.",
       "Este informe permite decidir el orden de desarrollo y la evidencia necesaria para completar cada fase. Los estados se refieren al alcance total de la fase: una función implementada o una prueba aprobada no equivale a una fase cerrada. No asignamos porcentajes globales sin estimación del esfuerzo y criterios de cierre aprobados.",
       "<b>Prioridades:</b> P0 = condición crítica para habilitar el alcance; P1 = desarrollo posterior según dependencias. <b>Siglas:</b> PP = peso propio; FEM = elementos finitos; GUID = identificador único del elemento BIM.",
@@ -89,7 +89,9 @@
       "Perfil por proyecto, ediciones propuestas, evidencia y matriz de pendientes. Contrato con seis estados de verificación; ninguna regla RNE real está habilitada como comprobación validada. Guardado local y archivo de proyecto conservan geometría y entradas; los cambios invalidan resultados dependientes.",
       "Armadura y documentos",
       "Jaulas manuales de vigas/columnas, transparencia y masa teórica. No hay diseño E.060 ni despiece constructivo completo. Memoria HTML del pórtico, balance CSV/JSON y proyecto exportable; no son todavía un expediente técnico coordinado.",
-      "<b>Evidencia de la última entrega de código:</b> 55 pruebas unitarias aprobadas, TypeScript y compilación correctos; cinco flujos de navegador aprobados. Se detalla su alcance en la página 7. Esta revisión documental no sustituye esas pruebas ni añade certificación."
+      "Interfaz y migración Next.js",
+      "La carcasa App Router/React incluye cinta, navegación, navegador BIM, pestañas, pie, ejemplos y fichas React para elementos estructurales, rejillas y niveles. La escena Three.js se inicia desde el runtime cliente existente; el trabajo restante se concentra en desacoplar progresivamente la inicialización y validar los flujos de navegador. Bun gestiona scripts y dependencias.",
+      "<b>Evidencia del corte:</b> 62 pruebas unitarias aprobadas; TypeScript y build de producción Next.js 16.3.6 correctos; respuesta HTTP 200 verificada. La suite de navegador sigue pendiente: el lanzamiento automatizado de Chromium agotó el tiempo de espera y no se declara aprobada. Nada de esto certifica cumplimiento estructural o normativo."
     ]
   },
   {
@@ -127,7 +129,7 @@
     ]
   },
   {
-    "heading": "Próximas tareas en orden de prioridad",
+    "heading": "Próximas tareas prioritarias",
     "blocks": [
       "Identificadores de seguimiento propuestos para las siguientes entregas",
       {
@@ -223,7 +225,7 @@
     "blocks": [
       "Cómo comprobar el avance y mantener actualizado este informe",
       "Ejecución registrada en la última entrega",
-      "55 pruebas unitarias aprobadas; verificación TypeScript y compilación Vite correctas. Cinco flujos de navegador: superficies, balance de cargas, vistas duales, ejemplos y prueba general. Incluyen escritorio/móvil, persistencia, exportaciones e invalidación. Las advertencias de compilación sobre tamaño del paquete y externalización de node:module por Manifold permanecen como deuda técnica; no se presentaron como resueltas.",
+      "62 pruebas unitarias aprobadas; TypeScript y build de producción Next.js 16.3.6 correctos; respuesta HTTP 200 verificada. La suite automatizada de navegador no pudo completar el lanzamiento de Chromium y queda pendiente para una máquina o entorno compatible. La comprobación HTTP no valida interacción visual ni edición completa.",
       {
         "headers": [
           "Referencia",
@@ -253,7 +255,7 @@
       "Fuentes oficiales para la revisión normativa",
       "La publicación del MVCS identifica la modificación de E.030 mediante la <link href=\"https://www.gob.pe/institucion/vivienda/normas-legales/8081915-183-2026-vivienda\" color=\"#155c7a\">RM 183-2026-VIVIENDA</link>. La <link href=\"https://www.gob.pe/institucion/vivienda/normas-legales/8219609-217-2026-vivienda\" color=\"#155c7a\">RM 217-2026-VIVIENDA</link> modifica su disposición transitoria para proyectos en curso. El perfil debe justificar la edición aplicable; esta referencia no reemplaza la revisión integral del texto técnico.",
       "<link href=\"https://www.gob.pe/institucion/vivienda/informes-publicaciones/2309793-reglamento-nacional-de-edificaciones-rne\" color=\"#155c7a\">Compendio oficial RNE del MVCS</link>: localizar E.020, E.030, E.050 y E.060 y revisar sus modificatorias. Consulta de publicaciones: 20 de septiembre de 2026. El historial atribuido al CIP es un insumo del proyecto; no constituye por sí solo homologación, norma ni autorización.",
-      "<b>Actualización sugerida:</b> al cerrar cada T01-T06 y cada fase, registrar versión, evidencia, fecha, responsable y aprobación; reemplazar el estado solo cuando se cumpla su puerta de aceptación."
+      "<b>Actualización sugerida:</b> al cerrar cada T01-T06 y cada fase, registrar versión, evidencia, fecha, responsable y aprobación; reemplazar el estado solo cuando se cumpla su puerta de aceptación. La migración Next.js es trabajo de plataforma, no cierre de una fase normativa."
     ]
   }
 ]

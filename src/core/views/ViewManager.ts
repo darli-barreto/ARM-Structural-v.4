@@ -33,7 +33,7 @@ export class ViewManager {
    */
   public initDefaultViews(): void {
     // Limpiar vistas previas si existiesen
-    this.views.forEach(v => v.domElement.remove());
+    this.views.forEach(v => v.dispose());
     this.views.clear();
 
     const defaultViews = [
@@ -206,7 +206,7 @@ export class ViewManager {
     // Eliminar planos de planta cuyos niveles hayan sido borrados
     this.views.forEach((v, id) => {
       if (v.type === 'plan' && !validPlanIds.has(id) && id !== 'plan-lvl-1' && !id.startsWith('dual-')) {
-        v.domElement.remove();
+        v.dispose();
         this.views.delete(id);
         this.openTabIds = this.openTabIds.filter(tabId => tabId !== id);
       }
@@ -298,6 +298,17 @@ export class ViewManager {
       renderer.setScissor(left, bottom, width, height);
       renderer.render(this.sceneForView?.(view)||scene, view.camera);
     });
+  }
+
+  public dispose(): void {
+    this.views.forEach(view => view.dispose());
+    this.views.clear();
+    this.openTabIds = [];
+    this.onActiveViewChanged = undefined;
+    this.onTabsUpdated = undefined;
+    this.onBeforeRenderView = undefined;
+    this.sceneForView = undefined;
+    this.container.replaceChildren();
   }
 }
 

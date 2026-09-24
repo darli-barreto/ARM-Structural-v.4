@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { solveFrame } from '../src/core/analysis/Solver';
 import { AnalysisModel } from '../src/core/analysis/Model';

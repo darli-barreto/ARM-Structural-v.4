@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { BimDatabase } from '../src/core/database/BimDatabase';
 import { analyticalGraph, memberAxes } from '../src/core/analysis/AnalyticalGraph';

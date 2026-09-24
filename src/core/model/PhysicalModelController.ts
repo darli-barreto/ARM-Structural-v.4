@@ -10,11 +10,22 @@ export class PhysicalModelController {
   public state:'pending'|'ready'|'error'='ready';
   private worker:Worker|null=null;
   private timer:ReturnType<typeof setTimeout>|undefined;
+  private disposed=false;
+  private unsubscribe:()=>void;
   constructor(private registry:ElementRegistry,private refresh:()=>void){
-    BimDatabase.getInstance().subscribe(action=>{if(action!=='quantities')this.schedule();});
+    this.unsubscribe=BimDatabase.getInstance().subscribe(action=>{if(action!=='quantities')this.schedule();});
     this.schedule();
   }
+  public dispose():void{
+    if(this.disposed)return;
+    this.disposed=true;
+    this.unsubscribe();
+    clearTimeout(this.timer);
+    this.worker?.terminate();
+    this.worker=null;
+  }
   private schedule(){
+    if(this.disposed)return;
     clearTimeout(this.timer);this.worker?.terminate();this.worker=null;
     this.state='pending';this.status='Uniones: calculando...';
     this.timer=setTimeout(()=>this.compute(),250);

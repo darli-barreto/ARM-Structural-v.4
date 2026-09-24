@@ -14,6 +14,10 @@ export class Viewer {
   private onFpsUpdate?: (fps: number) => void;
   private frames = 0;
   private lastTime = performance.now();
+  private animationFrame: number | null = null;
+  private resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+  private resizeHandler: (() => void) | null = null;
+  private disposed = false;
 
   constructor() {
     this.scene = new THREE.Scene();
@@ -75,13 +79,18 @@ export class Viewer {
 
   private initResizeListener(): void {
     const resize = () => {
+      if (this.disposed) return;
       const container = document.getElementById('viewports-container');
       if (!container) return;
       const rect = container.getBoundingClientRect();
       this.renderer.setSize(rect.width, rect.height);
     };
+    this.resizeHandler = resize;
     window.addEventListener('resize', resize);
-    setTimeout(resize, 100);
+    this.resizeTimeout = setTimeout(() => {
+      this.resizeTimeout = null;
+      resize();
+    }, 100);
   }
 
   public setFpsCallback(cb: (fps: number) => void): void {
@@ -90,7 +99,8 @@ export class Viewer {
 
   private startLoop(): void {
     const animate = () => {
-      requestAnimationFrame(animate);
+      if (this.disposed) return;
+      this.animationFrame = requestAnimationFrame(animate);
       this.viewManager.renderViewports(this.renderer, this.scene);
       
       this.frames++;
@@ -102,6 +112,38 @@ export class Viewer {
       }
     };
     animate();
+  }
+
+  public dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame);
+    if (this.resizeTimeout !== null) clearTimeout(this.resizeTimeout);
+    if (this.resizeHandler) window.removeEventListener('resize', this.resizeHandler);
+    this.viewManager.dispose();
+
+    const geometries = new Set<THREE.BufferGeometry>();
+    const disposedMaterials = new Set<THREE.Material>();
+    const textures = new Set<THREE.Texture>();
+    this.scene.traverse(object => {
+      const renderable = object as THREE.Object3D & { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] };
+      if (renderable.geometry) geometries.add(renderable.geometry);
+      const materials = renderable.material ? (Array.isArray(renderable.material) ? renderable.material : [renderable.material]) : [];
+      materials.forEach(material => {
+        if (disposedMaterials.has(material)) return;
+        disposedMaterials.add(material);
+        Object.values(material).forEach(value => {
+          if (value instanceof THREE.Texture) textures.add(value);
+        });
+      });
+    });
+    geometries.forEach(geometry => geometry.dispose());
+    disposedMaterials.forEach(material => material.dispose());
+    textures.forEach(texture => texture.dispose());
+    this.scene.clear();
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+    this.onFpsUpdate = undefined;
   }
 }
 

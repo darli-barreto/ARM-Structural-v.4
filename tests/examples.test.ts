@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { createExampleProject } from '../src/core/model/ExampleProjects';
 import { parseProject } from '../src/core/model/Project';

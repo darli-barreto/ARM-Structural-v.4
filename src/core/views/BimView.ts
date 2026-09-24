@@ -21,6 +21,9 @@ export class BimView {
   ) {
     // CORREGIDO: w-full h-full min-h-0 min-w-0 para forzar a que ocupe todo el espacio vertical del Grid
     this.domElement = document.createElement('div');
+    this.domElement.id = `viewport-${id}`;
+    this.domElement.setAttribute('role', 'tabpanel');
+    this.domElement.setAttribute('aria-labelledby', `view-tab-${id}`);
     this.domElement.className = 'h-full w-full relative flex flex-col w-full h-full min-h-0 min-w-0 bg-transparent border border-white/10 overflow-hidden pointer-events-auto transition-all';
     this.domElement.dataset.viewId = id;
 
@@ -95,6 +98,11 @@ export class BimView {
       this.camera.bottom = -h;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  public dispose(): void {
+    this.controls.dispose();
+    this.domElement.remove();
   }
 
   private getIcon(): string {
