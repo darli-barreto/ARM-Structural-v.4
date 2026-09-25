@@ -6,7 +6,17 @@ export interface AnalysisWorkerCallbacks {
   onError(message: string): void;
 }
 
-export class AnalysisWorkerClient {
+export interface AnalysisExecutor {
+  run(
+    model: AnalysisModel,
+    factors: { dead: number; live: number; nodal: number },
+    caseName: string,
+    callbacks: AnalysisWorkerCallbacks,
+  ): void;
+  cancel(): void;
+}
+
+export class AnalysisWorkerClient implements AnalysisExecutor {
   private worker: Worker | null = null;
 
   public run(

@@ -3,15 +3,35 @@ import type { BenchmarkId } from './Benchmarks';
 import { benchmarkComparison } from './BenchmarkReport';
 import {buildLoadLedger,type LoadLedger} from './LoadLedger';
 import {frameInputSignature} from './Loads';
+import {assessAnalysisResult} from './ResultAssessment';
+import type {KernelParityReport} from './KernelAdapter';
+import {kernelDiagnosticRows,kernelDiagnosticsScope,kernelDiagnosticsUnavailable} from './KernelDiagnostics';
 const h=(v:unknown)=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-export function analysisReport(model:AnalysisModel,result:AnalysisResult,factors:{dead:number;live:number;nodal:number},image:string,benchmark?:BenchmarkId,ledger?:LoadLedger):string {
+export function analysisReport(model:AnalysisModel,result:AnalysisResult,factors:{dead:number;live:number;nodal:number},image:string,benchmark?:BenchmarkId,ledger?:LoadLedger,parity?:KernelParityReport|null):string {
   const table=(heads:string[],rows:(string|number)[][])=>`<table><thead><tr>${heads.map(v=>`<th>${h(v)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(v=>`<td>${h(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   const balance=ledger??buildLoadLedger(model,factors,[],result),totals=balance.assembled.totals;
   if(result.inputSignature!==frameInputSignature(model,factors)||balance.inputSignature!==result.inputSignature)throw new Error('Resultados o balance no vigentes para esta memoria.');
+  const assessment=assessAnalysisResult(model,result,factors,benchmark,parity);
+  const parityRows=parity?[
+    ['Nudos y reacciones',parity.rows],['Fuerzas de extremo',parity.memberRows],
+    ['Diagramas',parity.diagramRows],['Deformada entre nudos',parity.deformationRows],
+  ] as const:[];
   return `<!doctype html><html lang="es"><meta charset="UTF-8"><title>ARM - Memoria de analisis</title><style>body{font:12px Arial;color:#202b34;max-width:1000px;margin:40px auto;padding:20px}h1{font-size:25px}h2{font-size:16px;margin-top:26px}table{border-collapse:collapse;width:100%;font-size:10px}th,td{padding:6px;border:1px solid #ccc;text-align:right;overflow-wrap:anywhere}th{background:#edf3f0}img{max-width:100%}@media print{body{margin:0;padding:0}thead{display:table-header-group}tr{break-inside:avoid}}@page{size:A4 landscape;margin:14mm}</style><h1>ARM / Memoria de analisis de portico</h1>
   <p>${h(result.caseName)} / ${new Date().toISOString()} / Revision ${result.revision}</p><p>${h(result.engine)}. Plano ${model.plane}; coordenada ${model.ordinate} m; tolerancia ${model.tolerance} m. Unidades: m, kN, MPa.</p>
   <p>Factores D=${factors.dead}, L=${factors.live}, nodal=${factors.nodal}. PP automatico incluido en D salvo tramos declarados como D total con PP. Cargas distribuidas positivas hacia abajo; Fy positiva hacia arriba; momento y giro positivos horarios en el plano H-Y. Losas: solo reparto uniforme declarado, no analisis de placas ni distribucion automatica. No incluye cimentaciones, segundo orden, sismo E.030 ni diseno de armaduras E.060. No acredita cumplimiento integral del RNE.</p><p>Elementos omitidos: ${model.omitted}. Ajustes de conectividad: ${h(model.issues.join(' '))}</p><img alt="Modelo y deformada" src="${image}"/>
   ${benchmark?benchmarkComparison(benchmark,model,factors,result):''}
+  <h2>Lectura tecnica del resultado</h2><p>Coherente significa que paso las comprobaciones indicadas; no equivale a seguridad estructural, capacidad, servicio ni conformidad normativa. La auditoria de reacciones recalcula el balance a partir de las cargas ensambladas y las reacciones entregadas; comparte el modelo de cargas del solver.</p>
+  ${table(['Comprobacion','Estado','Interpretacion'],assessment.map(item=>[item.label,item.state==='coherent'?'Coherente':item.state==='review'?'Revisar':'No verificado',item.explanation]))}
+  <h2>Contraste ARM / Rust</h2><p>${parity
+    ? h(parity.deformationAvailable?'Se contrastaron respuestas, esfuerzos, diagramas y deformadas.':'Contraste incompleto: el kernel no entrego deformadas entre nudos.')
+    : 'No se ejecuto el contraste Rust/WASM para esta revision.'} La coincidencia entre motores no constituye validacion independiente frente a un problema fisico conocido.</p>
+  ${parity?table(['Grupo','Registros','Fuera de tolerancia','Lectura'],parityRows.map(([label,rows])=>[
+    label,rows.length,rows.filter(row=>!row.passed).length,
+    !rows.length?'No disponible':rows.every(row=>row.passed)?'Dentro de tolerancia':'Revisar diferencias en tabla interactiva',
+  ])):''}
+  ${parity?`<h2>Diagnostico numerico Rust</h2><p>${h(kernelDiagnosticsScope)}</p>${parity.diagnostics
+    ?table(['Indicador','Valor','Interpretacion'],kernelDiagnosticRows(parity.diagnostics).map(row=>[row.label,row.value,row.explanation]))
+    :`<p>${h(kernelDiagnosticsUnavailable)}</p>`}`:''}
   <h2>Balance de cargas</h2><p>${h(balance.scope)}</p>${table(['PP automatico activo (kN)','PP automatico excluido (kN)','D manual (kN)','L manual (kN)','Fx del caso (kN)','Fy del caso (kN)','M global horario (kN m)'],[[totals.selfWeight,totals.excludedSelfWeight,totals.manualDead,totals.manualLive,totals.fx,totals.fy,totals.moment]])}
   <p>${balance.rows.filter(r=>r.status==='transfer-pending').length} losas sin transferencia BIM vinculada. Cargas manuales pueden representar losas u otras acciones, pero no hay una asignacion de fuentes verificada. La conciliacion de volumen bruto/neto no modifica el peso del solver.</p>
   <h2>Fuentes superficiales declaradas</h2><p>D superficial asignada: ${totals.surfaceDead} kN; L superficial asignada: ${totals.surfaceLive} kN. Area geometrica con huecos, sin descuento de solapes; D = area x (espesor x peso unitario + D sobrepuesta). La fuerza asignada se conserva; no se comprueba el momento de la fuente ni la compatibilidad espacial. La parte fuera del portico no ingresa al solver.</p>

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type SyntheticEvent } from 'react';
-import { Calculator, Download, FileText, X } from 'lucide-react';
-import { benchmarkComparison } from '@/core/analysis/BenchmarkReport';
+import { Calculator, Download, FileText, Scale, X } from 'lucide-react';
 import type { LoadFilter } from '@/features/analysis/LoadBalanceView.ts';
 import { buildLoadLedger } from '@/core/analysis/LoadLedger';
 import { BimDatabase } from '@/core/database/BimDatabase';
@@ -10,6 +9,7 @@ import type { AnalysisModel, Support } from '@/core/analysis/Model';
 import type { DeadLoadMode } from '@/core/analysis/Loads';
 import { analysisPanelStore, type AnalysisDraftKey, type AnalysisPanelTab } from '@/features/analysis/AnalysisPanelStore.ts';
 import { LoadBalanceTable as LoadBalanceTableView, SurfaceLoadEditor as SurfaceLoadEditorView } from './AnalysisPanelDataViews';
+import { AnalysisResultsView } from './AnalysisResultsView';
 import { useMobileViewerMode } from '@/shared/ui/useMobileViewerMode.ts';
 
 const tableClasses = 'w-full border-collapse text-left text-xs [&_th]:sticky [&_th]:top-0 [&_th]:border-b [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-2 [&_td]:border-b [&_td]:border-slate-200 [&_td]:p-2';
@@ -147,16 +147,8 @@ export default function AnalysisPanel() {
       </tr>)}</tbody></table></div>;
     }
     if (!panel.result) return <div id="analysis-table" className="min-h-0 flex-1 overflow-auto" role="tabpanel" aria-labelledby="analysis-tab-results"><div className="p-8 text-center text-sm">Sin resultados vigentes</div></div>;
-    const result = panel.result;
-    const benchmarkMarkup = panel.benchmark
-      ? panel.stale
-        ? '<p class="benchmark-note">Modelo modificado. Referencia sin resultados vigentes.</p>'
-        : benchmarkComparison(panel.benchmark, model, panel.factors, result)
-      : '';
     return <div id="analysis-table" className="min-h-0 flex-1 overflow-auto" role="tabpanel" aria-labelledby="analysis-tab-results">
-      {benchmarkMarkup && <div dangerouslySetInnerHTML={{ __html: benchmarkMarkup }} />}
-      <table className={tableClasses}><thead><tr><th>Nudo</th><th>Uh (mm)</th><th>Uy (mm)</th><th>Giro (rad)</th><th>Rh (kN)</th><th>Ry (kN)</th><th>Rm (kN m)</th></tr></thead><tbody>{result.nodes.map(node => <tr key={node.id}><td>{node.id}</td><td>{(node.ux * 1000).toFixed(4)}</td><td>{(node.uy * 1000).toFixed(4)}</td><td>{node.rotation.toExponential(3)}</td><td>{node.rx.toFixed(3)}</td><td>{node.ry.toFixed(3)}</td><td>{node.rm.toFixed(3)}</td></tr>)}</tbody></table>
-      <table className={tableClasses}><thead><tr><th>Barra</th><th>|N|max (kN)</th><th>|V|max (kN)</th><th>|M|max (kN m)</th></tr></thead><tbody>{result.members.map(member => <tr key={member.id}><td>{model.members.find(item => item.id === member.id)?.mark ?? member.id}</td><td>{Math.max(...member.axial.map(Math.abs)).toFixed(3)}</td><td>{Math.max(...member.shear.map(Math.abs)).toFixed(3)}</td><td>{Math.max(...member.moment.map(Math.abs)).toFixed(3)}</td></tr>)}</tbody></table>
+      <AnalysisResultsView panel={panel} />
     </div>;
   })();
 
@@ -208,6 +200,7 @@ export default function AnalysisPanel() {
           <label>Factor L<input id="analysis-factor-l" type="number" step="0.1" value={numericDraft.live} onChange={event => changeNumericDraft('live', event.currentTarget.value)} onBlur={() => commitFactor('live')} /></label>
           <label>Factor nodal<input id="analysis-factor-n" type="number" step="0.1" value={numericDraft.nodal} onChange={event => changeNumericDraft('nodal', event.currentTarget.value)} onBlur={() => commitFactor('nodal')} /></label>
           <button id="analysis-solve" type="button" className="bg-emerald-700 text-white" disabled={!panel.canCalculate || panel.pending} onClick={() => commands?.solve()}><Calculator aria-hidden="true" size={16} /> Calcular</button>
+          {panel.kernelAvailable && <button id="analysis-kernel-compare" type="button" disabled={!panel.canCompareKernel} onClick={() => commands?.compareKernel()}><Scale aria-hidden="true" size={16} /> Contrastar Rust</button>}
         </div>
         <span id="analysis-status" role="status" aria-live="polite">{panel.status}</span>
       </footer>

@@ -46,7 +46,7 @@ export class ApplicationProjectSession {
     const analysisPanel = new AnalysisPanel(id => {
       const element = deps.structural.registry.findById(id);
       if (element) deps.focusElementIn3D(element);
-    });
+    }, deps.wasm);
     const dualModelController = new DualModelController(
       deps.viewer,
       deps.structural.registry,

@@ -17,7 +17,7 @@ test('la barra contextual vive en React y el controlador conserva los contratos 
   });
   const markup = renderToStaticMarkup(createElement(ContextualSubheaderView));
   expect(markup).toContain('id="contextual-subbar"');
-  expect(markup).toContain('Deseleccionar');
+  expect(markup).toContain('id="model-toolbar"');
 
   controller.updateForTool('grid', 'Nivel 2');
   expect(contextualSubheaderStore.getSnapshot().mode).toBe('grid');

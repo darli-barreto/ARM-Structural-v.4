@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 import { THEME, VisualStyle } from '../config/theme.config';
 import type { StructuralDefinition } from '../core/model/Geometry';
+import { Frame2dKernelClient, type Frame2dSolveOptions } from './worker/Frame2dKernelClient';
+import type { Frame2dModelInputV1, Frame2dResultV1 } from './worker/frame2d.protocol';
+import { KernelClient, type MeshOptions } from './worker/KernelClient';
+import type { KernelGeometry, KernelMeshResult } from './worker/protocol';
+import {
+  assertKernelPoint,
+  assertKernelPositive,
+  assertKernelSegment,
+  KERNEL_CONTRACT_VERSION,
+} from './KernelContract';
 
 export interface MeshData {
   geometry: THREE.BufferGeometry;
@@ -26,6 +36,28 @@ function createBoxGeometry(
 
 export class WasmBridge {
   private ready = false;
+  private kernelClient: KernelClient | undefined;
+  private frame2dKernelClient: Frame2dKernelClient | undefined;
+  public readonly contractVersion = KERNEL_CONTRACT_VERSION;
+
+  /** Opt-in WASM geometry. Existing synchronous methods continue to use Three.js. */
+  public createKernelMesh(element: KernelGeometry, options: MeshOptions): Promise<KernelMeshResult> {
+    this.kernelClient ??= new KernelClient();
+    return this.kernelClient.mesh(element, options);
+  }
+
+  /** Opt-in SI-unit 2D frame analysis. The active TypeScript solver remains unchanged. */
+  public solveKernelFrame2d(model: Frame2dModelInputV1, options: Frame2dSolveOptions): Promise<Frame2dResultV1> {
+    this.frame2dKernelClient ??= new Frame2dKernelClient();
+    return this.frame2dKernelClient.solve(model, options);
+  }
+
+  public disposeKernel(): void {
+    this.kernelClient?.dispose();
+    this.kernelClient = undefined;
+    this.frame2dKernelClient?.dispose();
+    this.frame2dKernelClient = undefined;
+  }
 
   // 1. MATERIAL LÍNEA OCULTA (Revit Hidden Line): Blanco puro opaco en AMBAS caras para tapar aristas traseras
   public hiddenLineMaterial = new THREE.MeshBasicMaterial({ 
@@ -87,6 +119,10 @@ export class WasmBridge {
   }
 
   public createFooting(x: number, y: number, z: number, w: number, l: number, h: number): MeshData {
+    assertKernelPoint({ x, y, z }, 'footing.center');
+    assertKernelPositive(w, 'footing.width');
+    assertKernelPositive(l, 'footing.length');
+    assertKernelPositive(h, 'footing.height');
     const minX = x - w / 2;
     const maxX = x + w / 2;
     const minY = y;
@@ -99,6 +135,9 @@ export class WasmBridge {
   }
 
   public createColumn(x: number, z: number, y0: number, y1: number, w: number, d: number): MeshData {
+    assertKernelSegment({ x, y: y0, z }, { x, y: y1, z }, 'column.axis');
+    assertKernelPositive(w, 'column.width');
+    assertKernelPositive(d, 'column.depth');
     const minX = x - w / 2;
     const maxX = x + w / 2;
     const minY = Math.min(y0, y1);
@@ -112,6 +151,9 @@ export class WasmBridge {
   }
 
   public createBeam(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, w: number, h: number): MeshData {
+    assertKernelSegment({ x: x1, y: y1, z: z1 }, { x: x2, y: y2, z: z2 }, 'beam.axis');
+    assertKernelPositive(w, 'beam.width');
+    assertKernelPositive(h, 'beam.height');
     const minY = Math.min(y1, y2) - h;
     const maxY = Math.max(y1, y2);
     const dx = Math.abs(x2 - x1);
@@ -145,6 +187,10 @@ export class WasmBridge {
   }
 
   public createSlab(cx: number, cy: number, cz: number, wx: number, lz: number, th: number): MeshData {
+    assertKernelPoint({ x: cx, y: cy, z: cz }, 'slab.center');
+    assertKernelPositive(wx, 'slab.width');
+    assertKernelPositive(lz, 'slab.length');
+    assertKernelPositive(th, 'slab.thickness');
     const minX = cx - wx / 2;
     const maxX = cx + wx / 2;
     const minY = cy;
@@ -165,6 +211,9 @@ export class WasmBridge {
     w: number,
     d: number
   ): MeshData {
+    assertKernelSegment(p1, p2, 'column.axis');
+    assertKernelPositive(w, 'column.width');
+    assertKernelPositive(d, 'column.depth');
     const v1 = new THREE.Vector3(p1.x, p1.y, p1.z);
     const v2 = new THREE.Vector3(p2.x, p2.y, p2.z);
     const dir = new THREE.Vector3().subVectors(v2, v1);
@@ -198,6 +247,9 @@ export class WasmBridge {
     w: number,
     h: number
   ): MeshData {
+    assertKernelSegment(p1, p2, 'beam.axis');
+    assertKernelPositive(w, 'beam.width');
+    assertKernelPositive(h, 'beam.height');
     const v1 = new THREE.Vector3(p1.x, p1.y, p1.z);
     const v2 = new THREE.Vector3(p2.x, p2.y, p2.z);
     const spanVec = new THREE.Vector3().subVectors(v2, v1);
@@ -205,14 +257,11 @@ export class WasmBridge {
     const forward = spanVec.clone().normalize();
 
     // Sistema de coordenadas ortonormal: en estructuras la cara superior de la viga es horizontal
-    let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
-    if (right.lengthSq() < 0.0001) {
-      // Si la viga fuese casi vertical
-      right = new THREE.Vector3(1, 0, 0);
-    } else {
-      right.normalize();
-    }
-    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+    const reference = Math.abs(forward.y) > 0.999999
+      ? new THREE.Vector3(0, 0, 1)
+      : new THREE.Vector3(0, 1, 0);
+    const right = new THREE.Vector3().crossVectors(reference, forward).normalize();
+    const up = new THREE.Vector3().crossVectors(forward, right).normalize();
 
     // La cota superior de la viga se alinea con la línea entre nodos (p1 -> p2)
     // Por lo tanto, el centro volumétrico de la viga está desplazado -h/2 respecto al centro de los nodos
@@ -240,10 +289,14 @@ export class WasmBridge {
     thickness: number,
     elevY: number
   ): MeshData {
-    if (boundary.length < 3) {
-      // Fallback a losa mínima de 1x1
-      return this.createSlab(0, elevY, 0, 1, 1, thickness);
-    }
+    assertKernelPositive(thickness, 'slab.thickness');
+    if (!Number.isFinite(elevY)) throw new Error('KERNEL_NON_FINITE: slab.elevation');
+    if (boundary.length < 3) throw new Error('KERNEL_INVALID_POLYGON: slab.boundary');
+    boundary.forEach((point, index) => assertKernelPoint(point, `slab.boundary[${index}]`));
+    voids.forEach((ring, ringIndex) => {
+      if (ring.length < 3) throw new Error(`KERNEL_INVALID_POLYGON: slab.voids[${ringIndex}]`);
+      ring.forEach((point, pointIndex) => assertKernelPoint(point, `slab.voids[${ringIndex}][${pointIndex}]`));
+    });
 
     const shape = new THREE.Shape();
     shape.moveTo(boundary[0].x, boundary[0].z);

@@ -1,0 +1,473 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,patterns}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{float}
+\geometry{left=24mm,right=24mm,top=23mm,bottom=25mm}
+\definecolor{armblue}{HTML}{176A93}
+\definecolor{armred}{HTML}{BD3F3F}
+\definecolor{armgray}{HTML}{4B5563}
+\hypersetup{colorlinks=true,linkcolor=armblue,urlcolor=armblue}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small ARM-Structural | Banco de verificación 2D}
+\fancyhead[R]{\small 25-09-2026}
+\fancyfoot[L]{\small Revisión técnica independiente}
+\fancyfoot[R]{\small \thepage}
+\setlength{\headheight}{14pt}
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+\newcommand{\kN}{\,\mathrm{kN}}
+\newcommand{\kNm}{\,\mathrm{kN\,m}}
+\newcommand{\mm}{\,\mathrm{mm}}
+\newcommand{\m}{\,\mathrm{m}}
+\newcommand{\MPa}{\,\mathrm{MPa}}
+\newcommand{\caseheading}[2]{\section{#1: #2}}
+\newcommand{\note}[1]{\begin{quote}\small\color{armgray}#1\end{quote}}
+\tikzset{member/.style={line width=1.25pt,draw=black},
+         force/.style={-{Latex[length=2.5mm]},line width=1pt,draw=armred},
+         axis/.style={-{Latex[length=2mm]},draw=armgray},
+         defshape/.style={draw=armblue,dashed,line width=1.1pt}}
+
+\begin{document}
+\begin{titlepage}
+\centering
+\vspace*{22mm}
+{\large ARM-Structural / Structural\_Kernel\par}
+\vspace{13mm}
+{\Huge\bfseries Banco de verificación\\[3mm]estructural 2D\par}
+\vspace{7mm}
+{\Large Cinco casos con referencias independientes, resultados y diagramas\par}
+\vspace{19mm}
+\begin{tabular}{@{}ll@{}}
+Tipo & Informe técnico para contraste por ingenieros revisores\\
+Versión & 1.0, 25 de septiembre de 2026\\
+Modelo & Pórtico plano, elasticidad lineal, elemento Timoshenko\\
+Unidades & kN, m, kN\,m, mm, mrad\\
+Motores & TypeScript y Rust/WASM\\
+Estado & Evidencia de verificación parcial; no certificación\\
+\end{tabular}
+\vfill
+\begin{minipage}{0.86\textwidth}
+\color{armgray}
+Este informe permite repetir cálculos y detectar discrepancias. Los casos no
+validan por sí solos análisis sísmico, diseño por resistencia, detallado de
+armaduras ni cumplimiento del RNE. La aprobación del software requiere
+ensayos adicionales, revisión de hipótesis, control de versiones y dictamen
+firmado por profesionales competentes.
+\end{minipage}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Alcance, método y convenciones}
+Se comparan cinco modelos planos de barras prismáticas con pequeñas
+deformaciones, material elástico lineal y deformación por flexión y cortante.
+Se anula el peso propio para aislar las cargas indicadas. No se aplican
+factores normativos: los multiplicadores de carga muerta, viva y nodal son
+unitarios. El eje global $X$ apunta a la derecha, $Y$ hacia arriba; $u_x$ y
+$u_y$ son positivos en dichos sentidos. En las tablas de desplazamientos,
+$\theta$ se expresa con la convención de la interfaz ARM, positiva en sentido
+horario. Las referencias de diagramas emplean momento sagante positivo y
+cortante positivo en la cara izquierda. Los momentos de reacción que muestra
+ARM usan signo opuesto al momento físico antihorario; cuando importa se
+informa la magnitud y se explica el equilibrio.
+
+Los casos EX-01 a EX-04 tienen referencias cerradas de estática y teoría de
+Timoshenko. EX-05 tiene una referencia separada por compatibilidad y método
+de fuerzas (archivo de prueba
+\texttt{tests/fixtures/portal-force-reference.mjs}); no es una medición
+experimental ni una solución cerrada publicada. Ambos motores, TypeScript
+($\mathrm{TS}$) y Rust/WASM ($\mathrm{R}$), se ejecutaron sobre el mismo modelo.
+La concordancia TS--Rust es una comprobación de paridad, no sustituye la
+referencia independiente.
+
+Para sección rectangular se usa
+\[
+A=bh,\qquad I=\frac{bh^3}{12},\qquad
+G=\frac{E}{2(1+\nu)},\qquad
+K_s=\kappa GA,\quad\kappa=\frac56.
+\]
+La deformación transversal se separa en flexión $w_b$ y cortante $w_s$.
+El signo negativo denota descenso. Se dan cifras suficientes para auditoría,
+sin atribuir significado físico a los últimos decimales de una solución en
+punto flotante.
+
+\begin{table}[H]\centering
+\caption{Resumen de los cinco casos de referencia}
+\begin{tabular}{@{}llll@{}}\toprule
+ID & Sistema & Acción & Comprobación principal\\\midrule
+EX-01 & Voladizo horizontal & $P=10\kN$ & Flecha de punta y empotramiento\\
+EX-02 & Viga biapoyada & $q=10\kN/\m$ & Reacciones, $V$, $M$, flecha\\
+EX-03 & Viga biempotrada & $q=10\kN/\m$ & Momentos de empotramiento\\
+EX-04 & Voladizo inclinado & $F_x=4$, $F_y=-5\kN$ & Transformación local/global\\
+EX-05 & Pórtico de un vano & $F_x=5+7\kN$ & Compatibilidad y reacciones\\
+\bottomrule\end{tabular}
+\end{table}
+
+\section{Datos comunes y trazabilidad}
+Para EX-01, EX-04 y EX-05: $E=30000\MPa$, $\nu=0.20$,
+$b=0.20\m$, $h=0.30\m$, $A=0.0600\mathrm{m}^2$,
+$I=0.000450\mathrm{m}^4$, $EI=13500\kNm^2$ y
+$K_s=625000\kN$.
+Para EX-02 y EX-03: $E=25000\MPa$, $\nu=0.20$,
+$b=0.30\m$, $h=0.50\m$, $A=0.1500\mathrm{m}^2$,
+$I=0.003125\mathrm{m}^4$, $EI=78125\kNm^2$ y
+$K_s=1302083.333\kN$. No se agregan rótulas ni desplazamientos impuestos.
+
+El insumo y los resultados completos, incluidos los esfuerzos de extremo,
+se generan con \texttt{bun run test:engineering-review-examples} en
+\texttt{test-results/engineering-review-examples.json}. El archivo WASM
+utilizado tiene SHA-256
+\texttt{c9f5811354f513f8ea27ae8860e484a1e60c2984fbe5e03f9c4a16ed6c17c6d6}.
+La instantánea de trabajo no es una publicación inmutable; antes de emitir
+un dictamen se debe fijar un commit, un binario y los hashes de todos los
+insumos.
+
+\caseheading{EX-01}{Voladizo con carga puntual en el extremo}
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[pattern=north east lines] (-.38,-.65) rectangle (-.18,.65);
+\draw[very thick] (-.18,-.65)--(-.18,.65);
+\draw[member] (-.18,0)--(7,0);
+\draw[force] (7,1.2)--(7,.12) node[pos=0,above] {$P=10\kN$};
+\draw[<->] (0,-.55)--(7,-.55) node[midway,fill=white] {$L=3\m$};
+\node[below] at (0,-.7) {$A$}; \node[below] at (7,-.7) {$B$};
+\draw[defshape] (0,-.04).. controls (2,-.08) and (5,-.35)..(7,-.63);
+\node[armblue,right] at (7,-.63) {$w_B$ (amplificada)};
+\end{tikzpicture}
+\caption{Modelo y deformada esquemática; la deformación no está a escala.}
+\end{figure}
+Con $L=3\m$ y $P=10\kN$, las ecuaciones independientes son
+\[
+R_{Ay}=P=10\kN,\qquad |M_A|=PL=30\kNm,
+\]
+\[
+w_B=-\frac{PL^3}{3EI}-\frac{PL}{K_s}
+=-6.666667\mm-0.048000\mm=-6.714667\mm.
+\]
+Si $x$ se mide desde el empotramiento, el diagrama convencional tiene
+$V(x)=-10\kN$ y $M(x)=-10(3-x)\kNm$. La rotación física de punta
+es $-PL^2/(2EI)=-3.333333$ mrad; ARM la muestra como
+$+3.333333$ mrad por su convención horaria.
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\node[left] at (0,1.05) {$V$}; \draw[gray] (0,1.05)--(6,1.05);
+\draw[armred,thick] (0,.48)--(6,.48);
+\draw[armred] (0,1.05)--(0,.48) (6,1.05)--(6,.48);
+\node[right] at (6,.48) {$-10\kN$};
+\node[left] at (0,-.4) {$M$}; \draw[gray] (0,-.4)--(6,-.4);
+\draw[armblue,thick] (0,-1.45)--(6,-.4);
+\draw[armblue] (0,-.4)--(0,-1.45);
+\node[below] at (0,-1.45) {$-30\kNm$};
+\node[below] at (6,-.45) {$0$};
+\end{tikzpicture}
+\caption{Cortante y momento de referencia, convención de cara izquierda.}
+\end{figure}
+\begin{table}[H]\centering
+\caption{EX-01: contraste numérico}
+\begin{tabular}{@{}lrrr@{}}\toprule
+Magnitud & Referencia & TS & Rust\\\midrule
+$R_{Ay}$ (kN) & 10.000000 & 10.000000 & 10.000000\\
+$|M_A|$ (kN m) & 30.000000 & 30.000000 & 30.000000\\
+$u_{y,B}$ (mm) & -6.714667 & -6.714667 & -6.714667\\
+\bottomrule\end{tabular}
+\end{table}
+
+\caseheading{EX-02}{Viga simplemente apoyada con carga uniforme}
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\draw[member] (0,0)--(8,0);
+\foreach \x in {.4,1.2,2,2.8,3.6,4.4,5.2,6,6.8,7.6}
+  \draw[force] (\x,.75)--(\x,.08);
+\draw[armred] (.4,.77)--(7.6,.77);
+\node[above] at (4,.77) {$q=10\kN/\m$};
+\draw[thick] (0,0)--(-.28,-.42)--(.28,-.42)--cycle;
+\draw[thick] (-.42,-.45)--(.42,-.45);
+\draw[thick] (8,0)--(7.72,-.42)--(8.28,-.42)--cycle;
+\draw[thick] (7.55,-.48)--(8.45,-.48);
+\draw[<->] (0,-.9)--(8,-.9) node[midway,fill=white] {$L=6\m$};
+\node[below] at (0,-.9) {$A$}; \node[below] at (8,-.9) {$B$};
+\end{tikzpicture}
+\caption{Viga con apoyo articulado en $A$ y rodillo en $B$.}
+\end{figure}
+\[
+R_{Ay}=R_{By}=\frac{qL}{2}=30\kN,\quad
+V(x)=30-10x,\quad M(x)=30x-5x^2.
+\]
+\[
+M(L/2)=\frac{qL^2}{8}=45\kNm,\qquad
+w(L/2)=-\frac{5qL^4}{384EI}-\frac{qL^2}{8K_s}
+=-2.160000-0.034560=-2.194560\mm.
+\]
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\node[left] at (0,1.2) {$V$}; \draw[gray] (0,1.2)--(8,1.2);
+\draw[armred,thick] (0,2.05)--(8,.35);
+\draw[densely dotted] (4,.2)--(4,2.5);
+\node[above] at (0,2.05) {$+30$}; \node[below] at (8,.35) {$-30\kN$};
+\node[left] at (0,-.35) {$M$}; \draw[gray] (0,-.35)--(8,-.35);
+\draw[armblue,thick,domain=0:8,samples=41]
+  plot (\x,{-.35+1.3*(\x/4)*(2-\x/4)});
+\node[above] at (4,.95) {$+45\kNm$};
+\node[below] at (0,-.35) {$0$}; \node[below] at (8,-.35) {$6\m$};
+\end{tikzpicture}
+\caption{Diagramas de referencia; la abscisa representa $x=0$ a $6$ m.}
+\end{figure}
+\begin{table}[H]\centering
+\caption{EX-02: valores para reconstruir los diagramas}
+\begin{tabular}{@{}lrrrrr@{}}\toprule
+$x$ (m) & 0 & 1.5 & 3.0 & 4.5 & 6.0\\\midrule
+$V$ (kN) & 30 & 15 & 0 & -15 & -30\\
+$M$ (kN m) & 0 & 33.75 & 45 & 33.75 & 0\\
+\bottomrule\end{tabular}
+\end{table}
+\begin{table}[H]\centering
+\caption{EX-02: contraste numérico}
+\begin{tabular}{@{}lrrr@{}}\toprule
+Magnitud & Referencia & TS & Rust\\\midrule
+$R_{Ay}=R_{By}$ (kN) & 30.000000 & 30.000000 & 30.000000\\
+$|M_{L/2}|$ (kN m) & 45.000000 & 45.000000 & 45.000000\\
+$u_{y,L/2}$ (mm) & -2.194560 & -2.194560 & -2.194560\\
+\bottomrule\end{tabular}
+\end{table}
+\note{ARM presenta $-45$ kN m en el campo de diagrama central. Su magnitud
+coincide con el momento sagante $+45$ kN m adoptado aquí; para auditar signos
+se debe usar una convención única en toda la comparación.}
+
+\caseheading{EX-03}{Viga biempotrada con carga uniforme}
+Mismas propiedades, luz y carga que EX-02, pero con traslaciones y giros
+restringidos en ambos extremos. La solución independiente es
+\[
+R_{Ay}=R_{By}=30\kN,\quad
+M(x)=-\frac{qL^2}{12}+\frac{qL}{2}x-\frac q2 x^2
+=-30+30x-5x^2\quad(\kNm),
+\]
+\[
+M_A=M_B=-30\kNm,\qquad M_{L/2}=+15\kNm,
+\]
+\[
+w(L/2)=-\frac{qL^4}{384EI}-\frac{qL^2}{8K_s}
+=-0.432000-0.034560=-0.466560\mm.
+\]
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[pattern=north east lines] (-.35,-.55) rectangle (-.18,.55);
+\fill[pattern=north east lines] (8.18,-.55) rectangle (8.35,.55);
+\draw[very thick] (-.18,-.55)--(-.18,.55) (8.18,-.55)--(8.18,.55);
+\draw[member] (-.18,0)--(8.18,0);
+\foreach \x in {.4,1.2,2,2.8,3.6,4.4,5.2,6,6.8,7.6}
+  \draw[force] (\x,.75)--(\x,.08);
+\node[above] at (4,.8) {$q=10\kN/\m$};
+\draw[gray] (0,-1.15)--(8,-1.15);
+\draw[armblue,thick,domain=0:8,samples=41]
+  plot (\x,{-1.15+(-30+30*(\x*6/8)-5*(\x*6/8)^2)/35});
+\node[below] at (0,-2) {$-30$};
+\node[above] at (4,-.72) {$+15\kNm$};
+\node[below] at (8,-2) {$-30$};
+\end{tikzpicture}
+\caption{Viga biempotrada y diagrama de momento de referencia.}
+\end{figure}
+\begin{table}[H]\centering
+\caption{EX-03: valores del diagrama y contraste}
+\begin{tabular}{@{}lrrrrr@{}}\toprule
+$x$ (m) & 0 & 1.5 & 3.0 & 4.5 & 6.0\\\midrule
+$V$ (kN) & 30 & 15 & 0 & -15 & -30\\
+$M$ (kN m) & -30 & 3.75 & 15 & 3.75 & -30\\
+\bottomrule\end{tabular}
+\medskip
+\begin{tabular}{@{}lrrr@{}}\toprule
+Magnitud & Referencia & TS & Rust\\\midrule
+$R_{Ay}=R_{By}$ (kN) & 30.000000 & 30.000000 & 30.000000\\
+$|M_A|=|M_B|$ (kN m) & 30.000000 & 30.000000 & 30.000000\\
+$|M_{L/2}|$ (kN m) & 15.000000 & 15.000000 & 15.000000\\
+$u_{y,L/2}$ (mm) & -0.466560 & -0.466560 & -0.466560\\
+\bottomrule\end{tabular}
+\end{table}
+\note{Este caso no contiene grados de libertad libres. Por ello comprueba
+reacciones, cargas equivalentes y recuperación de deformada, pero no
+ejercita la resolución de un sistema lineal libre; debe leerse junto con los
+otros casos, no como prueba aislada del solucionador.}
+
+\caseheading{EX-04}{Voladizo inclinado con cargas globales}
+El elemento va de $A=(0,0)$ a $B=(3,4)$ m; $L=5$ m,
+$c=3/5=0.6$, $s=4/5=0.8$. En $B$ actúan
+$(F_x,F_y)=(+4,-5)$ kN.
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[pattern=north east lines] (-.45,-.4) rectangle (.45,-.25);
+\draw[very thick] (-.45,-.25)--(.45,-.25);
+\draw[member] (0,0)--(3,4);
+\fill (0,0) circle (1.4pt) (3,4) circle (1.4pt);
+\draw[force] (3,4)--(4.25,4) node[right] {$F_x=+4\kN$};
+\draw[force] (3,4)--(3,2.85) node[below] {$F_y=-5\kN$};
+\draw[axis] (-.2,-.8)--(1,-.8) node[right] {$X$};
+\draw[axis] (-.2,-.8)--(-.2,.3) node[above] {$Y$};
+\node[left] at (0,0) {$A$}; \node[above left] at (3,4) {$B$};
+\node[right] at (1.35,2.0) {$L=5\m$};
+\end{tikzpicture}
+\caption{Proyección de carga global sobre los ejes locales de la barra.}
+\end{figure}
+Las componentes locales son
+\[
+N=cF_x+sF_y=-1.6\kN,\qquad
+T=-sF_x+cF_y=-6.2\kN.
+\]
+Con $u'=NL/(EA)$ y
+$v'=T[L^3/(3EI)+L/K_s]$, la transformación a global
+$u_x=cu'-sv'$, $u_y=su'+cv'$ entrega
+\[
+u_{x,B}=+15.345655\mm,\qquad
+u_{y,B}=-11.514797\mm.
+\]
+La estática da $R_{Ax}=-4\kN$, $R_{Ay}=+5\kN$ y
+$|M_A|=|3(-5)-4(4)|=31\kNm$.
+\begin{table}[H]\centering
+\caption{EX-04: contraste de respuesta global}
+\begin{tabular}{@{}lrrr@{}}\toprule
+Magnitud & Referencia & TS & Rust\\\midrule
+$R_{Ax}$ (kN) & -4.000000 & -4.000000 & -4.000000\\
+$R_{Ay}$ (kN) & +5.000000 & +5.000000 & +5.000000\\
+$|M_A|$ (kN m) & 31.000000 & 31.000000 & 31.000000\\
+$u_{x,B}$ (mm) & +15.345655 & +15.345655 & +15.345655\\
+$u_{y,B}$ (mm) & -11.514797 & -11.514797 & -11.514797\\
+\bottomrule\end{tabular}
+\end{table}
+
+\caseheading{EX-05}{Pórtico empotrado de un vano bajo carga lateral}
+Nudos $P_0=(0,0)$, $P_1=(0,3)$, $P_2=(5,3)$,
+$P_3=(5,0)$ m. Apoyos empotrados en $P_0$ y $P_3$.
+Tres barras prismáticas continuas: $P_0P_1$, $P_1P_2$, $P_2P_3$.
+Fuerzas horizontales $+5$ kN en $P_1$ y $+7$ kN en $P_2$.
+\begin{figure}[H]\centering
+\begin{tikzpicture}[x=1cm,y=1cm]
+\draw[member] (0,0)--(0,3)--(5,3)--(5,0);
+\fill[pattern=north east lines] (-.4,-.35) rectangle (.4,-.2);
+\fill[pattern=north east lines] (4.6,-.35) rectangle (5.4,-.2);
+\draw[very thick] (-.4,-.2)--(.4,-.2) (4.6,-.2)--(5.4,-.2);
+\draw[force] (0,3)--(1.05,3) node[midway,above] {$5\kN$};
+\draw[force] (5,3)--(6.05,3) node[right] {$7\kN$};
+\node[left] at (0,0) {$P_0$}; \node[left] at (0,3) {$P_1$};
+\node[above] at (5,3) {$P_2$}; \node[right] at (5,0) {$P_3$};
+\draw[<->] (0,3.6)--(5,3.6) node[midway,fill=white] {$5\m$};
+\draw[<->] (-.75,0)--(-.75,3) node[midway,fill=white] {$3\m$};
+\draw[defshape] (0,0)..controls (.12,1.5) and (.22,2.7)..(.28,3)
+  --(5.28,3)..controls (5.22,2.4) and (5.11,.8)..(5,0);
+\node[armblue,right] at (5.3,2.3) {deformada amplificada};
+\end{tikzpicture}
+\caption{Pórtico y deformada cualitativa, no a escala.}
+\end{figure}
+La referencia independiente se obtiene por flexibilidad/compatibilidad de
+los redundantes en el pórtico. No se usa la matriz global del motor ARM.
+Los valores de la tabla son los hitos para contrastar una solución externa.
+\begin{table}[H]\centering
+\caption{EX-05: desplazamientos nodales; $\theta$ positiva horaria}
+\begin{tabular}{@{}llrrr@{}}\toprule
+Nudo & Magnitud & Referencia & TS & Rust\\\midrule
+$P_1$ & $u_x$ (mm) & 1.687063 & 1.687063 & 1.687063\\
+$P_1$ & $u_y$ (mm) & 0.004681 & 0.004681 & 0.004681\\
+$P_1$ & $\theta$ (mrad) & 0.439239 & 0.439239 & 0.439239\\
+$P_2$ & $u_x$ (mm) & 1.689831 & 1.689831 & 1.689831\\
+$P_2$ & $u_y$ (mm) & -0.004681 & -0.004681 & -0.004681\\
+$P_2$ & $\theta$ (mrad) & 0.440290 & 0.440290 & 0.440290\\
+\bottomrule\end{tabular}
+\end{table}
+\begin{table}[H]\centering
+\caption{EX-05: reacciones; momentos mostrados como magnitud}
+\begin{tabular}{@{}llrrr@{}}\toprule
+Apoyo & Magnitud & Referencia & TS & Rust\\\midrule
+$P_0$ & $R_x$ (kN) & -5.996529 & -5.996529 & -5.996529\\
+$P_0$ & $R_y$ (kN) & -2.808424 & -2.808424 & -2.808424\\
+$P_0$ & $|M|$ (kN m) & 10.971367 & 10.971367 & 10.971367\\
+$P_3$ & $R_x$ (kN) & -6.003471 & -6.003471 & -6.003471\\
+$P_3$ & $R_y$ (kN) & +2.808424 & +2.808424 & +2.808424\\
+$P_3$ & $|M|$ (kN m) & 10.986514 & 10.986514 & 10.986514\\
+\bottomrule\end{tabular}
+\end{table}
+Como control estático, $\sum F_x=12-5.996529-6.003471=0$,
+$\sum F_y=-2.808424+2.808424=0$.
+Respecto a $P_0$, el momento externo es $-36$ kN m, el par de
+reacciones verticales es $5(2.808424)=14.042119$ kN m y los
+momentos físicos de base suman $21.957881$ kN m:
+la suma es aproximadamente cero. ARM muestra los momentos de
+reacción como $-10.971367$ y $-10.986514$ kN m; se invierte su signo
+al escribir el equilibrio físico antihorario.
+
+\section{Lectura crítica de los resultados}
+Las tablas muestran concordancia al redondeo indicado en las magnitudes
+seleccionadas. En la ejecución reproducible, la máxima diferencia absoluta
+informada por el comparador TS--Rust entre fuerzas, reacciones y diagramas
+de EX-01 a EX-05 fue menor que $8\times10^{-13}$ en las unidades del campo
+comparado; para coordenadas de deformada fue menor que
+$4\times10^{-16}$ m. Estos máximos no son porcentajes ni una cota de error
+físico y no prueban todos los elementos o casos de carga.
+
+Un resultado es \emph{coherente} si conserva equilibrio, satisface
+restricciones, tiene signos acordes a una convención declarada y reproduce
+una referencia independiente dentro de tolerancias justificadas. La
+concordancia mutua de dos implementaciones que comparten hipótesis no
+garantiza corrección. Sería \emph{incongruente}, por ejemplo, que EX-02 no
+sumara $60$ kN de reacción vertical, que EX-04 no reaccionara con $-4$ kN
+horizontal, o que EX-05 presentara deriva opuesta a las cargas sin una causa
+física adicional. Los redondeos de seis decimales no deben interpretarse
+como precisión experimental.
+
+\section{Protocolo propuesto para el comité revisor}
+\begin{enumerate}
+\item Replicar cada geometría, apoyo, sección, material y carga en un
+programa independiente o mediante cálculo manual, sin ajustar parámetros
+para obtener las salidas ARM.
+\item Registrar formulación de viga usada: Euler--Bernoulli o
+Timoshenko; esta última incluye $K_s=\kappa GA$. Si se usa
+Euler--Bernoulli, comparar por separado el aporte de flexión.
+\item Verificar por caso equilibrio global, compatibilidad, deformaciones,
+fuerzas internas y signos. Reportar diferencia absoluta y relativa con
+tolerancias y redondeos pactados previamente.
+\item Para EX-05, revisar además fuerzas de extremo, diagramas completos,
+orientación local de cada barra y sensibilidad a la rigidez axial/cortante.
+\item Repetir con modelos más complejos: mallas refinadas, carga parcial,
+temperatura, asentamientos, rótulas, inestabilidad y geometrías irregulares;
+incluir pruebas negativas y de convergencia.
+\item Emitir dictamen delimitado por versión, alcance, casos y excepciones;
+no extrapolar estos ensayos a cumplimiento RNE E.020, E.030 o E.060.
+\end{enumerate}
+
+\begin{table}[H]\centering
+\caption{Formato mínimo para registrar discrepancias}
+\begin{tabularx}{\textwidth}{@{}lXlll@{}}\toprule
+Caso & Magnitud / ubicación & Referencia & ARM & Dictamen\\\midrule
+\rule{0pt}{8mm}\phantom{EX-00} & & & & \\
+\rule{0pt}{8mm} & & & & \\
+\rule{0pt}{8mm} & & & & \\
+\bottomrule\end{tabularx}
+\end{table}
+
+\section{Fuentes y archivos de revisión}
+\begin{itemize}
+\item Formulación conceptual del elemento Timoshenko:
+\href{https://oit.tudelft.nl/Finite-Elements-in-CEG/main/structural_linear/Exercises/pyjive_timoshenko.html}
+{TU Delft, ejercicio FEM Timoshenko}; teoría de vigas:
+\href{https://mechanics.ju.se/SolidMechanics/BeamTheory.html}
+{Jönköping University, Beam Theory}.
+\item Datos de cada ensayo: \texttt{tests/engineering-review-examples.mjs};
+referencia por compatibilidad: \texttt{tests/fixtures/portal-force-reference.mjs};
+salida completa: \texttt{test-results/engineering-review-examples.json}.
+\item Para encargo ciego sin resultados ARM:
+\texttt{docs/BAS-01\_ENCARGO\_REVISION\_INDEPENDIENTE.md}.
+\end{itemize}
+
+\note{Conclusión delimitada: los cinco ensayos seleccionados pasaron la
+comparación automatizada con sus referencias bajo las hipótesis declaradas.
+El software permanece en fase de verificación técnica y no debe presentarse
+como certificado ni aprobado para proyectos reales por este informe.}
+\end{document}

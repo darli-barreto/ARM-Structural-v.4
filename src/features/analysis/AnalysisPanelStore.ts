@@ -4,6 +4,7 @@ import type { Support } from '../../core/analysis/Model';
 import type { DeadLoadMode } from '../../core/analysis/Loads';
 import type { SurfaceLoad } from '../../core/analysis/SurfaceLoads';
 import type { LoadFilter } from './LoadBalanceView';
+import type { KernelParityReport } from '../../core/analysis/KernelAdapter';
 
 export type AnalysisPanelTab = 'nodes' | 'members' | 'surfaces' | 'loads' | 'results';
 export type AnalysisDraftKey = 'plane' | 'ordinate' | 'tolerance' | 'elasticModulusMPa' | 'unitWeight';
@@ -28,6 +29,11 @@ export interface AnalysisPanelSnapshot {
   pending: boolean;
   stale: boolean;
   canCalculate: boolean;
+  kernelAvailable: boolean;
+  canCompareKernel: boolean;
+  kernelStatus: 'idle' | 'running' | 'passed' | 'mismatch' | 'error';
+  kernelMessage: string;
+  kernelReport: KernelParityReport | null;
   canExport: boolean;
   canReport: boolean;
   status: string;
@@ -56,6 +62,7 @@ export interface AnalysisPanelCommands {
   exportModel(): void;
   exportReport(): void;
   solve(): void;
+  compareKernel(): void;
 }
 
 const initialSnapshot: AnalysisPanelSnapshot = {
@@ -70,6 +77,11 @@ const initialSnapshot: AnalysisPanelSnapshot = {
   pending: false,
   stale: true,
   canCalculate: false,
+  kernelAvailable: false,
+  canCompareKernel: false,
+  kernelStatus: 'idle',
+  kernelMessage: '',
+  kernelReport: null,
   canExport: false,
   canReport: false,
   status: '',

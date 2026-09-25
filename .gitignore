@@ -5,6 +5,7 @@ test-results/
 out/
 *.tsbuildinfo
 public/vendor/manifold.wasm
+public/vendor/structural-kernel/
 
 # Build output
 dist/
